@@ -1,0 +1,149 @@
+@import "tailwindcss";
+
+:root {
+  --background: #030a12;
+  --foreground: #e0f2fe;
+  --accent: #22d3ee;
+  --accent-dim: rgba(34, 211, 238, 0.15);
+  --surface: rgba(6, 18, 32, 0.85);
+  --border: rgba(34, 211, 238, 0.12);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-share-tech), ui-monospace, monospace;
+  --font-mono: var(--font-share-tech), ui-monospace, monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-share-tech), ui-monospace, monospace;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, .font-heading {
+  font-family: var(--font-orbitron), sans-serif;
+}
+
+/* Cyber grid background */
+.cyber-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 50% at 20% 10%, rgba(34, 211, 238, 0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 80%, rgba(59, 130, 246, 0.04) 0%, transparent 60%),
+    var(--background);
+}
+
+.cyber-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(34, 211, 238, 0.12) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 20%, transparent 80%);
+}
+
+/* Glass panels */
+.glass-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  backdrop-filter: blur(16px);
+}
+
+/* Glow text */
+.glow-text {
+  color: var(--accent);
+  text-shadow: 0 0 20px rgba(34, 211, 238, 0.4), 0 0 40px rgba(34, 211, 238, 0.1);
+}
+
+/* AI Analysis panel markdown styling */
+.analysis-content {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: #cbd5e1;
+}
+
+.analysis-content h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #22d3ee;
+  border-bottom: 1px solid rgba(34, 211, 238, 0.15);
+  padding-bottom: 0.5rem;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.analysis-content h2:first-child {
+  margin-top: 0;
+}
+
+.analysis-content p {
+  margin: 0.5rem 0;
+  color: #94a3b8;
+}
+
+.analysis-content ul {
+  margin: 0.5rem 0;
+  padding-left: 1.25rem;
+  list-style-type: disc;
+}
+
+.analysis-content li {
+  margin: 0.4rem 0;
+  color: #cbd5e1;
+}
+
+.analysis-content strong {
+  color: #e2e8f0;
+  font-weight: 600;
+}
+
+.analysis-content code {
+  background: rgba(34, 211, 238, 0.1);
+  color: #22d3ee;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-size: 0.8rem;
+}
+
+.analysis-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5rem 0;
+  font-size: 0.8rem;
+}
+
+.analysis-content th {
+  text-align: left;
+  color: #64748b;
+  padding: 0.375rem 0.5rem;
+  border-bottom: 1px solid rgba(34, 211, 238, 0.1);
+}
+
+.analysis-content td {
+  padding: 0.375rem 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: #94a3b8;
+}
+
+/* Mermaid consistent node sizing */
+.nodeLabel {
+  max-width: 160px;
+  min-width: 100px;
+  display: inline-block;
+  text-align: center;
+  word-wrap: break-word;
+  font-size: 12px !important;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-thumb { background: rgba(34, 211, 238, 0.2); border-radius: 4px; }
