@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# Environment (never commit API keys)
+.env.local
+.env*.local
+
+# Data directory (populated by fetch scripts — add to .gitignore or commit sample data)
+data/
+
+# Build output
+dist/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
