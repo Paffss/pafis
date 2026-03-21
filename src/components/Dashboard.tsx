@@ -146,7 +146,14 @@ const TEAM_COLORS = [
 
 function TeamDonut({ data, total }: { data: [string, number][]; total: number }) {
   const radius = 80, cx = 100, cy = 100, strokeWidth = 28;
-  let currentAngle = 0;
+
+  // Pre-compute start angles to avoid mutation inside render
+  const startAngles = data.reduce<number[]>((acc, _, i) => {
+    if (i === 0) return [0];
+    const prevAngle = (data[i - 1][1] / total) * 360;
+    return [...acc, acc[i - 1] + prevAngle];
+  }, []);
+
   return (
     <div className="flex items-center gap-8 justify-center flex-wrap">
       <div className="relative w-[200px] h-[200px] shrink-0">
@@ -154,8 +161,8 @@ function TeamDonut({ data, total }: { data: [string, number][]; total: number })
           <circle cx={cx} cy={cy} r={radius} fill="transparent" stroke="rgba(255,255,255,0.03)" strokeWidth={strokeWidth} />
           {data.map(([, count], i) => {
             const angle = (count / total) * 360;
-            const start = currentAngle;
-            currentAngle += angle;
+            const start = startAngles[i];
+            const end = start + angle;
             if (angle < 0.5) return null;
             if (angle >= 359.5) return (
               <circle key={i} cx={cx} cy={cy} r={radius} fill="transparent"
@@ -163,8 +170,8 @@ function TeamDonut({ data, total }: { data: [string, number][]; total: number })
             );
             const x1 = cx + radius * Math.cos((start * Math.PI) / 180);
             const y1 = cy + radius * Math.sin((start * Math.PI) / 180);
-            const x2 = cx + radius * Math.cos((currentAngle * Math.PI) / 180);
-            const y2 = cy + radius * Math.sin((currentAngle * Math.PI) / 180);
+            const x2 = cx + radius * Math.cos((end * Math.PI) / 180);
+            const y2 = cy + radius * Math.sin((end * Math.PI) / 180);
             return (
               <path key={i}
                 d={`M ${x1} ${y1} A ${radius} ${radius} 0 ${angle > 180 ? 1 : 0} 1 ${x2} ${y2}`}

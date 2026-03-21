@@ -15,7 +15,7 @@ export async function GET(
     return NextResponse.json({ error: 'Service not found' }, { status: 404 });
   }
 
-  const mermaid = generateMermaid(subgraph, name);
+  const mermaid = generateMermaid(subgraph);
 
   return NextResponse.json({
     mermaid,

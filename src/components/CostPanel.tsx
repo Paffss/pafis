@@ -1,5 +1,12 @@
 'use client';
 
+// TODO(cost): Add Anthropic API cost tracking per team
+// - Pull usage from Anthropic's usage API (https://docs.anthropic.com/en/api/usage)
+// - Cross-reference with owner_team label already on each deployment node
+// - Show per-team AI spend (Claude tokens) alongside K8s infrastructure cost
+// - Add "AI Costs" tab next to the existing Prometheus CPU/memory cost breakdown
+// - Useful for enterprise setups where each team has their own API key or cost center
+
 import { useEffect, useState } from 'react';
 import SlotMachine from './SlotMachine';
 
@@ -287,12 +294,17 @@ function DonutChart({ title, data }: { title: string; data: { label: string; val
   const total = data.reduce((sum, d) => sum + d.value, 0);
   if (total === 0) return null;
 
-  let currentAngle = 0;
   const radius = 35;
   const centerX = 50;
   const centerY = 50;
   const strokeWidth = 12;
 
+  // Pre-compute start angles to avoid mutation inside render
+  const startAngles = data.reduce<number[]>((acc, d) => {
+    const prev = acc[acc.length - 1] ?? 0;
+    const prevAngle = data[acc.length - 1] ? (data[acc.length - 1].value / total) * 360 : 0;
+    return [...acc, prev + (acc.length === 0 ? 0 : prevAngle)];
+  }, []);
   const COLORS = [
     '#22d3ee', // cyan-400
     '#818cf8', // indigo-400
@@ -318,8 +330,8 @@ function DonutChart({ title, data }: { title: string; data: { label: string; val
           />
           {data.map((d, i) => {
             const angle = (d.value / total) * 360;
-            const startAngle = currentAngle;
-            currentAngle += angle;
+            const startAngle = startAngles[i];
+            const endAngle = startAngle + angle;
 
             if (angle < 0.5) return null;
 
@@ -341,8 +353,8 @@ function DonutChart({ title, data }: { title: string; data: { label: string; val
 
             const x1 = centerX + radius * Math.cos((startAngle * Math.PI) / 180);
             const y1 = centerY + radius * Math.sin((startAngle * Math.PI) / 180);
-            const x2 = centerX + radius * Math.cos((currentAngle * Math.PI) / 180);
-            const y2 = centerY + radius * Math.sin((currentAngle * Math.PI) / 180);
+            const x2 = centerX + radius * Math.cos((endAngle * Math.PI) / 180);
+            const y2 = centerY + radius * Math.sin((endAngle * Math.PI) / 180);
 
             const largeArcFlag = angle > 180 ? 1 : 0;
             const dPath = `M ${x1} ${y1} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}`;
@@ -430,4 +442,3 @@ function UtilBadge({ pct }: { pct: number }) {
   const color = pct > 50 ? 'text-green-400' : pct > 20 ? 'text-amber-400' : 'text-red-400';
   return <span className={`font-mono ${color}`}>{pct}%</span>;
 }
-
