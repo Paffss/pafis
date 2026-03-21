@@ -87,7 +87,7 @@ function HomeContent() {
         {selectedService ? (
           <ServiceView name={selectedService} />
         ) : (
-          <Dashboard />
+          <Dashboard onSelectService={name => setSelectedService(name)} />
         )}
       </main>
     </div>

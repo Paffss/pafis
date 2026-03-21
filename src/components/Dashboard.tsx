@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import RiskSummary from './RiskSummary';
 
 interface Stats {
   totalNodes: number;
@@ -22,8 +23,13 @@ interface Stats {
   environments: number;
 }
 
-export default function Dashboard() {
+interface DashboardProps {
+  onSelectService?: (name: string) => void;
+}
+
+export default function Dashboard({ onSelectService }: DashboardProps) {
   const [stats, setStats] = useState<Stats | null>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'risks'>('overview');
 
   useEffect(() => {
     fetch('/api/stats')
@@ -40,69 +46,70 @@ export default function Dashboard() {
     );
   }
 
-  const teamEntries = Object.entries(stats.teamDistribution)
-    .sort((a, b) => b[1] - a[1]);
-  const maxTeamCount = teamEntries[0]?.[1] || 1;
+  const teamEntries = Object.entries(stats.teamDistribution).sort((a, b) => b[1] - a[1]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Hero stats */}
-      <div className="text-center space-y-2">
-        <h2 className="text-3xl font-bold text-zinc-100">
-          {stats.deployments} Deployments
-        </h2>
-        <p className="text-zinc-500">
-          {stats.services} services, {stats.helmCharts} helm charts,
-          {stats.databases} databases, {stats.networkPolicies} network rules, {stats.environments} environments
+      <div className="text-center space-y-1">
+        <h2 className="text-3xl font-bold text-zinc-100">{stats.deployments} Deployments</h2>
+        <p className="text-zinc-500 text-sm">
+          {stats.services} services · {stats.helmCharts} helm charts · {stats.databases} databases · {stats.networkPolicies} network rules
         </p>
       </div>
 
-      {/* Quick stats grid */}
+      {/* Quick stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard label="Total Nodes" value={stats.totalNodes} />
-        <StatCard label="Edges" value={stats.edges} />
+        <StatCard label="Graph Edges" value={stats.edges} />
         <StatCard label="ConfigMaps" value={stats.configmaps} />
         <StatCard label="Secrets" value={stats.secrets} />
       </div>
 
-      {/* Risk summary */}
-      <div className="glass-panel p-4">
-        <h3 className="text-sm font-medium text-zinc-400 mb-3">Risk Overview</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <RiskStat
-            label="No Resource Limits"
-            value={stats.noLimits}
-            total={stats.deployments}
-            severity="critical"
-          />
-          <RiskStat
-            label="Single Replica (SPOF)"
-            value={stats.singleReplica}
-            total={stats.deployments}
-            severity="warning"
-          />
-          <RiskStat
-            label="Using :latest"
-            value={stats.latestTag}
-            total={stats.deployments}
-            severity="critical"
-          />
-          <RiskStat
-            label="No Liveness Probe"
-            value={stats.noLivenessProbe}
-            total={stats.deployments}
-            severity="warning"
-          />
-        </div>
+      {/* Tab switcher */}
+      <div className="flex gap-2 border-b border-white/5">
+        {(['overview', 'risks'] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className="px-4 py-2 text-xs font-medium capitalize transition-all relative"
+            style={{ color: activeTab === tab ? '#22d3ee' : '#71717a' }}
+          >
+            {tab === 'risks' && stats.noLimits + stats.noLivenessProbe > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-red-400" />
+            )}
+            {tab}
+            {activeTab === tab && (
+              <span className="absolute bottom-0 left-0 right-0 h-px bg-cyan-400" />
+            )}
+          </button>
+        ))}
       </div>
 
-      {/* Team distribution */}
-      <div className="glass-panel p-4">
-        <h3 className="text-sm font-medium text-zinc-400 mb-3">
-          Deployments by Team ({teamEntries.length} teams)
-        </h3>
-        <TeamDonut data={teamEntries} total={stats.deployments} />
-      </div>
+      {activeTab === 'overview' ? (
+        <div className="space-y-4">
+          {/* Risk overview */}
+          <div className="glass-panel p-4">
+            <h3 className="text-sm font-medium text-zinc-400 mb-3">Risk Overview</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <RiskStat label="No Resource Limits"   value={stats.noLimits}        total={stats.deployments} severity="critical" />
+              <RiskStat label="Single Replica (SPOF)" value={stats.singleReplica}   total={stats.deployments} severity="warning" />
+              <RiskStat label="Using :latest tag"     value={stats.latestTag}        total={stats.deployments} severity="critical" />
+              <RiskStat label="No Liveness Probe"    value={stats.noLivenessProbe} total={stats.deployments} severity="warning" />
+            </div>
+          </div>
+
+          {/* Team distribution */}
+          <div className="glass-panel p-4">
+            <h3 className="text-sm font-medium text-zinc-400 mb-3">
+              Deployments by Team ({teamEntries.length} teams)
+            </h3>
+            <TeamDonut data={teamEntries} total={stats.deployments} />
+          </div>
+        </div>
+      ) : (
+        <RiskSummary onSelectService={name => onSelectService?.(name)} />
+      )}
     </div>
   );
 }
@@ -116,37 +123,32 @@ function StatCard({ label, value }: { label: string; value: number }) {
   );
 }
 
-function RiskStat({
-  label, value, total, severity,
-}: {
+function RiskStat({ label, value, total, severity }: {
   label: string; value: number; total: number; severity: 'critical' | 'warning';
 }) {
   const pct = total > 0 ? Math.round((value / total) * 100) : 0;
   const color = severity === 'critical' ? 'text-red-400' : 'text-amber-400';
+  const bg    = severity === 'critical' ? 'rgba(248,113,113,0.08)' : 'rgba(251,191,36,0.08)';
   return (
-    <div className="text-center">
-      <div className={`text-xl font-bold ${color}`}>{value}</div>
-      <div className="text-xs text-zinc-500">{label}</div>
-      <div className="text-xs text-zinc-600">{pct}% of deployments</div>
+    <div className="text-center p-3 rounded-lg" style={{ background: bg }}>
+      <div className={`text-2xl font-bold ${color}`}>{value}</div>
+      <div className="text-xs text-zinc-400 mt-0.5">{label}</div>
+      <div className="text-xs text-zinc-600">{pct}% of services</div>
     </div>
   );
 }
 
 const TEAM_COLORS = [
-  '#22d3ee', '#3b82f6', '#8b5cf6', '#14b8a6', '#f59e0b',
-  '#ec4899', '#10b981', '#f97316', '#6366f1', '#06b6d4',
-  '#a855f7', '#ef4444', '#84cc16', '#e879f9',
+  '#22d3ee','#3b82f6','#8b5cf6','#14b8a6','#f59e0b',
+  '#ec4899','#10b981','#f97316','#6366f1','#06b6d4',
+  '#a855f7','#ef4444','#84cc16','#e879f9',
 ];
 
 function TeamDonut({ data, total }: { data: [string, number][]; total: number }) {
-  const radius = 80;
-  const cx = 100;
-  const cy = 100;
-  const strokeWidth = 28;
+  const radius = 80, cx = 100, cy = 100, strokeWidth = 28;
   let currentAngle = 0;
-
   return (
-    <div className="flex items-center gap-8 justify-center">
+    <div className="flex items-center gap-8 justify-center flex-wrap">
       <div className="relative w-[200px] h-[200px] shrink-0">
         <svg viewBox="0 0 200 200" className="w-full h-full -rotate-90">
           <circle cx={cx} cy={cy} r={radius} fill="transparent" stroke="rgba(255,255,255,0.03)" strokeWidth={strokeWidth} />
@@ -154,25 +156,18 @@ function TeamDonut({ data, total }: { data: [string, number][]; total: number })
             const angle = (count / total) * 360;
             const start = currentAngle;
             currentAngle += angle;
-
             if (angle < 0.5) return null;
-
-            if (angle >= 359.5) {
-              return (
-                <circle key={i} cx={cx} cy={cy} r={radius} fill="transparent"
-                  stroke={TEAM_COLORS[i % TEAM_COLORS.length]} strokeWidth={strokeWidth} />
-              );
-            }
-
+            if (angle >= 359.5) return (
+              <circle key={i} cx={cx} cy={cy} r={radius} fill="transparent"
+                stroke={TEAM_COLORS[i % TEAM_COLORS.length]} strokeWidth={strokeWidth} />
+            );
             const x1 = cx + radius * Math.cos((start * Math.PI) / 180);
             const y1 = cy + radius * Math.sin((start * Math.PI) / 180);
             const x2 = cx + radius * Math.cos((currentAngle * Math.PI) / 180);
             const y2 = cy + radius * Math.sin((currentAngle * Math.PI) / 180);
-            const large = angle > 180 ? 1 : 0;
-
             return (
               <path key={i}
-                d={`M ${x1} ${y1} A ${radius} ${radius} 0 ${large} 1 ${x2} ${y2}`}
+                d={`M ${x1} ${y1} A ${radius} ${radius} 0 ${angle > 180 ? 1 : 0} 1 ${x2} ${y2}`}
                 fill="transparent" stroke={TEAM_COLORS[i % TEAM_COLORS.length]}
                 strokeWidth={strokeWidth} className="hover:opacity-80 transition-opacity" />
             );
