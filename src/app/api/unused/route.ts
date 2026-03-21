@@ -6,6 +6,16 @@ export interface UnusedItem {
   type: string;
   reason: string;
   severity: 'warning' | 'info';
+  system: boolean; // true = K8s system resource, not a real orphan
+}
+
+// Patterns that indicate a K8s system / infrastructure resource
+const SYSTEM_NAMESPACES = new Set(['kube-system', 'monitoring', 'ingress-nginx', 'kube-public', 'kube-node-lease', 'cert-manager', 'cattle-system']);
+const SYSTEM_PREFIXES   = ['kube-', 'coredns', 'alertmanager', 'prometheus', 'ingress-nginx', 'node-exporter', 'grafana', 'loki', 'tempo', 'minio', 'etcd', 'metrics-server', 'cluster-autoscaler'];
+
+function isSystemResource(name: string, namespace?: string): boolean {
+  if (namespace && SYSTEM_NAMESPACES.has(namespace)) return true;
+  return SYSTEM_PREFIXES.some(p => name.startsWith(p) || name.includes(`-${p}`));
 }
 
 export async function GET() {
@@ -50,6 +60,7 @@ export async function GET() {
         type:     'Deployment',
         reason:   'No Service routes traffic to this deployment',
         severity: 'warning',
+        system:   isSystemResource(node.name, node.metadata.namespace),
       });
     }
   }
@@ -65,6 +76,7 @@ export async function GET() {
         type:     'Service',
         reason:   'No Deployment matches this service selector',
         severity: 'warning',
+        system:   isSystemResource(node.name, node.metadata.namespace),
       });
     }
   }
@@ -80,6 +92,7 @@ export async function GET() {
         type:     'Helm Chart',
         reason:   'Chart has no connections to any deployment or service',
         severity: 'info',
+        system:   isSystemResource(node.name, node.metadata.namespace),
       });
     }
   }
@@ -94,6 +107,7 @@ export async function GET() {
         type:     'ConfigMap',
         reason:   'Not mounted or referenced by any deployment',
         severity: 'info',
+        system:   isSystemResource(node.name, node.metadata.namespace),
       });
     }
   }
@@ -108,21 +122,27 @@ export async function GET() {
         type:     'ServiceMonitor',
         reason:   'No matching deployment or service found for this monitor',
         severity: 'warning',
+        system:   isSystemResource(node.name, node.metadata.namespace),
       });
     }
   }
 
-  // Sort: warnings first, then by type, then by name
+  // Sort: system last, then warnings first, then by type, then by name
   unused.sort((a, b) => {
+    if (a.system !== b.system) return a.system ? 1 : -1;
     if (a.severity !== b.severity) return a.severity === 'warning' ? -1 : 1;
     if (a.type !== b.type) return a.type.localeCompare(b.type);
     return a.name.localeCompare(b.name);
   });
 
+  const appItems    = unused.filter(u => !u.system);
+  const systemItems = unused.filter(u => u.system);
+
   const summary = {
-    total:        unused.length,
-    warnings:     unused.filter(u => u.severity === 'warning').length,
-    info:         unused.filter(u => u.severity === 'info').length,
+    total:        appItems.length,  // only count app resources in warnings
+    totalSystem:  systemItems.length,
+    warnings:     appItems.filter(u => u.severity === 'warning').length,
+    info:         appItems.filter(u => u.severity === 'info').length,
     byType: {
       deployments:     unused.filter(u => u.type === 'Deployment').length,
       services:        unused.filter(u => u.type === 'Service').length,
