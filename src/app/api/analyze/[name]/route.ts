@@ -52,47 +52,70 @@ function getStages(ctx: string): Stage[] {
   return [
     {
       header: '## Purpose\n',
-      prompt: `K8s service. In 1-2 sentences, what does this service do? Infer from name, configmaps, secrets, databases.\n\n${ctx}\n\nRespond with just the description, no heading.`,
-      maxTokens: 100,
+      prompt: `You are a senior SRE analyzing a Kubernetes service. In 2-3 sentences, explain what this service does and its role in the architecture. Infer from the name, image, configmaps, secrets, and database connections. Be specific and technical.
+
+${ctx}
+
+Respond with just the description, no heading, no bullet points.`,
+      maxTokens: 150,
     },
     {
       header: '\n## Risks\n',
-      prompt: `K8s service. List risks. Format EXACTLY like this, each risk separated by a blank line:
+      prompt: `You are a senior SRE doing a production readiness review. List ALL risks for this K8s service. Format EXACTLY like this, each risk as its own paragraph separated by a blank line:
 
-🔴 No CPU limits set, risking noisy neighbor
+🔴 No CPU limits set — pod can consume unbounded CPU, causing noisy neighbor issues
 
-🟡 Single replica is SPOF
+🟡 Single replica — no redundancy, any pod failure causes downtime
 
-🔴 No PodDisruptionBudget defined
+🔴 No PodDisruptionBudget — rolling updates or node drains can take the service fully offline
 
-Check: missing limits, SPOF, probe gaps, no PDB. Do NOT mention image tags or :latest. Each risk as its own paragraph with blank line between. No bullet points.
+Check for: missing resource limits, missing requests, single replica SPOF, missing liveness probe, missing readiness probe, no PDB, no HPA, secrets mounted as env vars, no network policy, missing memory limits. 
+Use 🔴 for critical, 🟡 for warning. Be specific about the blast radius of each risk.
+
+${ctx}`,
+      maxTokens: 400,
+    },
+    {
+      header: '\n## Improvements\n',
+      prompt: `You are a senior SRE. List the top 5 concrete improvements for this K8s service, prioritized by impact. Format EXACTLY like this:
+- Add CPU/memory limits to prevent noisy neighbor issues
+- Configure PDB with minAvailable: 1 to survive node drains
+- Add HPA to auto-scale based on CPU utilization
+
+Each on its own line starting with "- ". Be specific and actionable, not generic.
 
 ${ctx}`,
       maxTokens: 250,
     },
     {
-      header: '\n## Improvements\n',
-      prompt: `K8s service. List max 4 improvements. Format EXACTLY like this:
-- Add CPU/memory limits
-- Configure PDB with minAvailable
+      header: '\n## Security\n',
+      prompt: `You are a Kubernetes security expert. Analyze this service for security issues. Format EXACTLY like this, each issue as its own paragraph separated by a blank line:
 
-Each on its own line starting with "- ".
+🔴 Secrets likely mounted as environment variables — exposed in pod spec and logs
+
+🟡 No NetworkPolicy defined — service can receive traffic from any pod in the cluster
+
+🔴 Container likely running as root — no securityContext defined
+
+Check for: secrets as env vars, missing securityContext (runAsNonRoot, readOnlyRootFilesystem), no NetworkPolicy, missing RBAC, privileged containers, no resource quotas, exposed sensitive configmap keys (passwords, tokens, keys). 
+Use 🔴 for critical, 🟡 for warning.
 
 ${ctx}`,
-      maxTokens: 200,
+      maxTokens: 350,
     },
     {
       header: '\n## Dependencies\n',
-      prompt: `K8s service. List dependencies. Format EXACTLY like this:
-- **Databases:** db1, db2
-- **Services:** svc1, svc2
-- **Messaging:** kafka, rabbitmq
-- **External:** sentry, keycloak
+      prompt: `You are a senior SRE. List this service's dependencies based on the context. Format EXACTLY like this:
+- **Databases:** db1, db2 (or "none")
+- **Services:** svc1, svc2 (or "none")
+- **Messaging:** kafka, rabbitmq (or "none")
+- **Cache:** redis, memcached (or "none")
+- **External:** sentry, keycloak, datadog (or "none")
 
-Each on its own line starting with "- **Type:**".
+Each on its own line starting with "- **Type:**". Only include what you can infer from the data.
 
 ${ctx}`,
-      maxTokens: 150,
+      maxTokens: 200,
     },
   ];
 }
