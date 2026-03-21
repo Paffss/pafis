@@ -330,6 +330,7 @@ export function getGraphStats() {
     singleReplica: 0,
     latestTag: 0,
     noLivenessProbe: 0,
+    noOwnerTeam: 0,
     environments: 0, // TODO(environments): parse from ingress hostnames (prod/staging/qa) and power environment switcher
   };
 
@@ -340,9 +341,14 @@ export function getGraphStats() {
         if (node.metadata.ownerTeam) {
           stats.teamDistribution[node.metadata.ownerTeam] =
             (stats.teamDistribution[node.metadata.ownerTeam] || 0) + 1;
+        } else {
+          stats.noOwnerTeam++;
+          stats.teamDistribution['unknown'] = (stats.teamDistribution['unknown'] || 0) + 1;
         }
         if (!node.metadata.cpuLimit && !node.metadata.memoryLimit) stats.noLimits++;
         if (node.metadata.replicas === 1) stats.singleReplica++;
+        if (node.metadata.image?.endsWith(':latest')) stats.latestTag++;
+        if (!node.metadata.hasLivenessProbe) stats.noLivenessProbe++;
         if (node.metadata.image?.endsWith(':latest')) stats.latestTag++;
         if (!node.metadata.hasLivenessProbe) stats.noLivenessProbe++;
         break;

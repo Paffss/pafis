@@ -130,27 +130,34 @@ export default function SearchBar({ onSelect, selected }: SearchBarProps) {
       </div>
 
       {isOpen && (
-        <div className="absolute z-50 w-full mt-1 rounded-lg shadow-2xl max-h-80 overflow-y-auto"
-          style={{ background: 'rgba(6, 18, 32, 0.95)', border: '1px solid rgba(34, 211, 238, 0.15)', backdropFilter: 'blur(16px)' }}>
+        <div className="absolute z-50 w-full mt-1 rounded-lg shadow-2xl max-h-96 overflow-y-auto"
+          style={{ background: 'rgba(6, 18, 32, 0.97)', border: '1px solid rgba(34, 211, 238, 0.15)', backdropFilter: 'blur(16px)' }}>
           {results.map((item, i) => (
             <button
               key={item.id}
               onClick={() => handleSelect(item.name)}
-              className={`w-full px-4 py-2.5 flex items-center justify-between text-left transition-colors
+              className={`w-full px-4 py-3 flex items-center justify-between text-left transition-colors
                 ${i === highlightIndex ? 'bg-cyan-500/10' : 'hover:bg-white/5'}
                 ${i === 0 ? 'rounded-t-lg' : ''}
-                ${i === results.length - 1 ? 'rounded-b-lg' : ''}`}
+                ${i === results.length - 1 ? 'rounded-b-lg' : ''}
+                border-b border-white/5 last:border-0`}
             >
-              <div className="flex items-center gap-2">
-                <span className="text-xs px-1.5 py-0.5 rounded bg-zinc-600 text-zinc-300 font-mono">
+              <div className="flex items-center gap-3">
+                <span className="text-xs px-2 py-0.5 rounded font-mono shrink-0"
+                  style={{
+                    background: item.type === 'deployment' ? 'rgba(34,211,238,0.12)' : item.type === 'helm-chart' ? 'rgba(139,92,246,0.15)' : 'rgba(134,239,172,0.12)',
+                    color: item.type === 'deployment' ? '#22d3ee' : item.type === 'helm-chart' ? '#c084fc' : '#86efac',
+                  }}>
                   {item.type === 'deployment' ? 'deploy' : item.type === 'helm-chart' ? 'helm' : 'svc'}
                 </span>
-                <span className="text-zinc-100">{item.name}</span>
+                <span className="text-sm text-zinc-100">{item.name}</span>
               </div>
-              {item.ownerTeam && (
-                <span className={`text-xs px-2 py-0.5 rounded-full ${TEAM_COLORS[item.ownerTeam] || 'bg-zinc-600 text-zinc-300'}`}>
+              {item.ownerTeam ? (
+                <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${TEAM_COLORS[item.ownerTeam] || 'bg-zinc-700 text-zinc-300'}`}>
                   {item.ownerTeam}
                 </span>
+              ) : (
+                <span className="missing-team shrink-0">no team</span>
               )}
             </button>
           ))}

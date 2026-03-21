@@ -54,10 +54,12 @@ export default function ServiceHeader({ name }: ServiceHeaderProps) {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
             <h2 className="text-xl font-bold text-zinc-100">{data.name}</h2>
-            {m.ownerTeam && (
-              <span className="text-xs px-2 py-1 rounded-full bg-blue-500/20 text-blue-300">
+            {m.ownerTeam ? (
+              <span className="text-sm px-2 py-1 rounded-full bg-blue-500/20 text-blue-300">
                 {m.ownerTeam}
               </span>
+            ) : (
+              <span className="missing-team">no owner team</span>
             )}
           </div>
           <div className="flex items-center gap-2">
