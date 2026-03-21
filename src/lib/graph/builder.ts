@@ -10,8 +10,6 @@ import {
   InfraGraph,
   GraphNode,
   GraphEdge,
-  SHARED_CONFIGMAPS,
-  SHARED_SECRETS,
   FAMILY_SUFFIXES,
 } from './types';
 
@@ -332,10 +330,8 @@ export function getGraphStats() {
     singleReplica: 0,
     latestTag: 0,
     noLivenessProbe: 0,
-    environments: 0,
+    environments: 0, // TODO(environments): parse from ingress hostnames (prod/staging/qa) and power environment switcher
   };
-
-  const envs = new Set<string>();
 
   for (const node of graph.nodes.values()) {
     switch (node.type) {

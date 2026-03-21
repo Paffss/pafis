@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense } from 'react';
+import Image from 'next/image';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import SearchBar from '@/components/SearchBar';
 import ServiceDiagram from '@/components/ServiceDiagram';
@@ -55,7 +56,7 @@ function HomeContent() {
             onClick={() => setSelectedService(null)}
             className="flex items-center gap-2.5 shrink-0 group"
           >
-            <img src="/logo.svg" alt="PAFIS" className="w-10 h-10 object-contain group-hover:scale-110 transition-transform drop-shadow-[0_0_10px_rgba(34,211,238,0.4)]" />
+            <Image src="/logo.svg" alt="PAFIS" width={40} height={40} className="object-contain group-hover:scale-110 transition-transform drop-shadow-[0_0_10px_rgba(34,211,238,0.4)]" />
             <h1 className="text-lg font-black tracking-tight">
               PAFIS
             </h1>

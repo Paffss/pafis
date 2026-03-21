@@ -1,4 +1,6 @@
-import { Subgraph, GraphNode, SHARED_CONFIGMAPS, SHARED_SECRETS } from './types';
+import { Subgraph, GraphNode } from './types';
+// TODO(diagram): Import SHARED_CONFIGMAPS/SHARED_SECRETS to render shared nodes differently
+// e.g. different shape/color to warn "modifying this affects 47 services"
 
 function sanitizeId(id: string): string {
   return id.replace(/[^a-zA-Z0-9]/g, '_');

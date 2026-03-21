@@ -108,7 +108,7 @@ export default function SearchBar({ onSelect, selected }: SearchBarProps) {
           value={query}
           onChange={e => handleChange(e.target.value)}
           onKeyDown={handleKeyDown}
-          onFocus={e => { results.length > 0 && setIsOpen(true); e.currentTarget.style.borderColor = 'rgba(34, 211, 238, 0.4)'; e.currentTarget.style.boxShadow = '0 0 20px rgba(34, 211, 238, 0.1)'; }}
+          onFocus={e => { if (results.length > 0) setIsOpen(true); e.currentTarget.style.borderColor = 'rgba(34, 211, 238, 0.4)'; e.currentTarget.style.boxShadow = '0 0 20px rgba(34, 211, 238, 0.1)'; }}
           onBlur={e => { e.currentTarget.style.borderColor = 'rgba(34, 211, 238, 0.15)'; e.currentTarget.style.boxShadow = 'none'; }}
           placeholder="Search services, charts, tools..."
           className="w-full px-4 py-3 pl-10 rounded-lg transition-all text-cyan-50 placeholder-slate-500 focus:outline-none"

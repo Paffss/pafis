@@ -79,8 +79,9 @@ export default function ServiceDiagram({ name }: ServiceDiagramProps) {
   const [rawData, setRawData] = useState<{ mermaid: string; nodeCount: number; edgeCount: number; nodes: DiagramNode[]; edges: { source: string; target: string; type: string; label?: string }[] } | null>(null);
   const [filteredCounts, setFilteredCounts] = useState({ nodes: 0, edges: 0 });
   const [hoveredNode, setHoveredNode] = useState<DiagramNode | null>(null);
-  const [hoveredEdge, setHoveredEdge] = useState<string | null>(null);
-  const [edgePos, setEdgePos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  // TODO(diagram): Implement edge tooltips — on hover show source→target, edge type, port
+  // Needs: hoveredEdge state, edgePos state, tooltip overlay component
+  // hoveredEdge and edgePos reserved for future tooltip feature
 
   // Fetch graph data
   useEffect(() => {
@@ -199,14 +200,10 @@ export default function ServiceDiagram({ name }: ServiceDiagramProps) {
           el.addEventListener('mouseenter', (e) => {
             (el as SVGElement).setAttribute('stroke-width', '4');
             (el as SVGElement).setAttribute('stroke', '#22d3ee');
-            const rect = containerRef.current!.getBoundingClientRect();
-            setEdgePos({ x: (e as MouseEvent).clientX - rect.left, y: (e as MouseEvent).clientY - rect.top });
-            setHoveredEdge('Connection');
           });
           el.addEventListener('mouseleave', () => {
             (el as SVGElement).setAttribute('stroke-width', '2');
             (el as SVGElement).setAttribute('stroke', '');
-            setHoveredEdge(null);
           });
         });
       }

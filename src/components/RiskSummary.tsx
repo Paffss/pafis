@@ -36,9 +36,8 @@ export default function RiskSummary({ onSelectService }: RiskSummaryProps) {
     .filter(r => !search || r.name.toLowerCase().includes(search.toLowerCase()) ||
       r.team.toLowerCase().includes(search.toLowerCase()));
 
-  const totalCritical = risks.filter(r => r.critical.length > 0).length;
+  // TODO(risks): add healthyCount badge — services with zero issues, completes the health picture
   const totalWarnings = risks.filter(r => r.critical.length === 0 && r.warnings.length > 0).length;
-  const healthyCount  = risks.length === 0 ? 0 : 0; // populated after load
 
   if (loading) {
     return (
