@@ -2,7 +2,6 @@ import fs from 'fs';
 import path from 'path';
 import yaml from 'js-yaml';
 import { DATA_PATHS } from '../config';
-import { GraphNode } from '../graph/types';
 
 interface K8sIngress {
   metadata?: {

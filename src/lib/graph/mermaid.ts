@@ -24,7 +24,7 @@ function nodeLabel(node: GraphNode): string {
   return padLabel(node.name);
 }
 
-export function generateMermaid(subgraph: Subgraph, centerNodeName?: string): string {
+export function generateMermaid(subgraph: Subgraph, _centerNodeName?: string): string {
   if (subgraph.nodes.length === 0) return 'graph TD\n  empty["No data found"]';
 
   const lines: string[] = ['graph TD'];

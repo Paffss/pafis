@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import yaml from 'js-yaml';
 import { DATA_PATHS } from '../config';
-import { GraphNode, GraphEdge } from '../graph/types';
+import { GraphNode } from '../graph/types';
 
 interface K8sDeployment {
   metadata?: {

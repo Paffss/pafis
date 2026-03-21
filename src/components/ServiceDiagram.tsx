@@ -197,7 +197,7 @@ export default function ServiceDiagram({ name }: ServiceDiagramProps) {
         containerRef.current.querySelectorAll('.flowchart-link').forEach(el => {
           (el as HTMLElement).style.cursor = 'pointer';
           (el as SVGElement).setAttribute('stroke-width', '2');
-          el.addEventListener('mouseenter', (e) => {
+          el.addEventListener('mouseenter', () => {
             (el as SVGElement).setAttribute('stroke-width', '4');
             (el as SVGElement).setAttribute('stroke', '#22d3ee');
           });
