@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import RiskSummary from './RiskSummary';
+import UnusedResources from './UnusedResources';
 
 interface Stats {
   totalNodes: number;
@@ -29,7 +30,7 @@ interface DashboardProps {
 
 export default function Dashboard({ onSelectService }: DashboardProps) {
   const [stats, setStats] = useState<Stats | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'risks'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'risks' | 'unused'>('overview');
 
   useEffect(() => {
     fetch('/api/stats')
@@ -68,7 +69,7 @@ export default function Dashboard({ onSelectService }: DashboardProps) {
 
       {/* Tab switcher */}
       <div className="flex gap-2 border-b border-white/5">
-        {(['overview', 'risks'] as const).map(tab => (
+        {(['overview', 'risks', 'unused'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -107,8 +108,10 @@ export default function Dashboard({ onSelectService }: DashboardProps) {
             <TeamDonut data={teamEntries} total={stats.deployments} />
           </div>
         </div>
-      ) : (
+      ) : activeTab === 'risks' ? (
         <RiskSummary onSelectService={name => onSelectService?.(name)} />
+      ) : (
+        <UnusedResources />
       )}
     </div>
   );
