@@ -16,8 +16,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
-# Disable TLS verification for self-signed certs in private clusters
 ENV NODE_TLS_REJECT_UNAUTHORIZED=0
+ENV PAFIS_BASE=/app/data
 
 COPY package.json package-lock.json ./
 COPY --from=deps /app/node_modules ./node_modules
@@ -25,10 +25,7 @@ RUN npm prune --omit=dev
 
 COPY --from=build /app/.next ./.next
 COPY --from=build /app/public ./public
-
-# Mount your manifest data at /data, or set PAFIS_BASE to another path
-# docker run -v /path/to/your/manifests:/data pafis:latest
-ENV PAFIS_BASE=/data
+COPY --from=build /app/data ./data
 
 EXPOSE 3000
 CMD ["npm", "run", "start"]
