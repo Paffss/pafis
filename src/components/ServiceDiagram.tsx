@@ -79,9 +79,8 @@ export default function ServiceDiagram({ name }: ServiceDiagramProps) {
   const [rawData, setRawData] = useState<{ mermaid: string; nodeCount: number; edgeCount: number; nodes: DiagramNode[]; edges: { source: string; target: string; type: string; label?: string }[] } | null>(null);
   const [filteredCounts, setFilteredCounts] = useState({ nodes: 0, edges: 0 });
   const [hoveredNode, setHoveredNode] = useState<DiagramNode | null>(null);
-  // TODO(diagram): Implement edge tooltips — on hover show source→target, edge type, port
-  // Needs: hoveredEdge state, edgePos state, tooltip overlay component
-  // hoveredEdge and edgePos reserved for future tooltip feature
+  const [hoveredEdge, setHoveredEdge] = useState<{ source: string; target: string; type: string; label?: string } | null>(null);
+  const [edgePos, setEdgePos] = useState({ x: 0, y: 0 });
 
   // Fetch graph data
   useEffect(() => {
@@ -194,16 +193,42 @@ export default function ServiceDiagram({ name }: ServiceDiagramProps) {
           }
         });
         // Add hover on edges (paths) to show connection info
-        containerRef.current.querySelectorAll('.flowchart-link').forEach(el => {
+        containerRef.current.querySelectorAll('.flowchart-link').forEach((el, idx) => {
           (el as HTMLElement).style.cursor = 'pointer';
           (el as SVGElement).setAttribute('stroke-width', '2');
-          el.addEventListener('mouseenter', () => {
+
+          el.addEventListener('mouseenter', (e) => {
             (el as SVGElement).setAttribute('stroke-width', '4');
             (el as SVGElement).setAttribute('stroke', '#22d3ee');
+
+            // Match this SVG path to edge data by index
+            const edge = rawData?.edges?.[idx] ?? null;
+            if (edge) {
+              const rect = viewportRef.current?.getBoundingClientRect();
+              if (rect) {
+                setEdgePos({
+                  x: (e as MouseEvent).clientX - rect.left,
+                  y: (e as MouseEvent).clientY - rect.top,
+                });
+              }
+              setHoveredEdge(edge);
+            }
           });
+
+          el.addEventListener('mousemove', (e) => {
+            const rect = viewportRef.current?.getBoundingClientRect();
+            if (rect) {
+              setEdgePos({
+                x: (e as MouseEvent).clientX - rect.left,
+                y: (e as MouseEvent).clientY - rect.top,
+              });
+            }
+          });
+
           el.addEventListener('mouseleave', () => {
             (el as SVGElement).setAttribute('stroke-width', '2');
             (el as SVGElement).setAttribute('stroke', '');
+            setHoveredEdge(null);
           });
         });
       }
@@ -397,6 +422,40 @@ export default function ServiceDiagram({ name }: ServiceDiagramProps) {
             }}
           />
         </div>
+        {/* Edge tooltip */}
+        {hoveredEdge && !hoveredNode && (
+          <div
+            className="absolute z-50 glass-panel p-3 text-xs shadow-2xl pointer-events-none"
+            style={{
+              left: Math.min(edgePos.x + 12, 400),
+              top: edgePos.y - 10,
+              borderColor: 'rgba(34,211,238,0.3)',
+              minWidth: '180px',
+              maxWidth: '260px',
+            }}
+          >
+            <div className="flex items-center gap-1.5 mb-2">
+              <span className="text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider"
+                style={{ background: 'rgba(34,211,238,0.12)', color: '#22d3ee' }}>
+                {hoveredEdge.type.replace(/-/g, ' ')}
+              </span>
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 text-zinc-300">
+                <span className="text-cyan-400 font-mono text-[11px]">{hoveredEdge.source.split(':')[1] || hoveredEdge.source}</span>
+                <span className="text-zinc-600">→</span>
+                <span className="text-cyan-300 font-mono text-[11px]">{hoveredEdge.target.split(':')[1] || hoveredEdge.target}</span>
+              </div>
+              {hoveredEdge.label && (
+                <div className="text-zinc-500 text-[11px]">
+                  {hoveredEdge.type === 'uses-configmap' ? 'Key' : 'Port'}:{' '}
+                  <span className="text-zinc-300 font-mono">{hoveredEdge.label.replace(/^:/, '')}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {hoveredNode && (
           <div
             className="absolute top-4 right-4 z-50 glass-panel p-3 min-w-[200px] text-xs shadow-2xl"
