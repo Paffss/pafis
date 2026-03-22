@@ -1,143 +1,172 @@
-# 🔭 PAFIS
+# PAFIS — Predictive Analysis For Infrastructure Services
 
-> **P**redictive **A**nalysis **F**or **I**nfrastructure **S**ervices
+PAFIS turns Kubernetes manifest files into an interactive intelligence layer — dependency graphs, AI-powered risk analysis, and cost estimation, with no live cluster access required.
 
-AI-powered Kubernetes infrastructure intelligence. Point it at any cluster (or a folder of YAML files) and PAFIS will map your service dependencies, identify risks, and estimate costs — all from a browser.
+## Screenshots
+
+![Dashboard](docs/screenshots/dashboard.png)
+![Dependency Diagram](docs/screenshots/diagram.png)
+![AI Analysis](docs/screenshots/analysis.png)
+---
 
 ## What it does
 
-Search for a service and PAFIS will:
+PAFIS reads Kubernetes manifest files (Deployments, Services, Ingresses, ConfigMaps, Secrets, Helm Charts, ServiceMonitors) from disk, parses them into an in-memory dependency graph, and provides:
 
-1. **Draw a dependency diagram** (Mermaid) — configmaps, secrets, databases, kafka, rabbitmq, redis, ingresses, network policies, service family members. Interactive: drag to pan, Ctrl+scroll to zoom, hover for details, toggle layers on/off
-2. **AI analysis** (Claude / Ollama) — explains what the service does, identifies risks & misconfigurations, suggests improvements. Streams progressively in 4 stages (Purpose → Risks → Improvements → Dependencies)
-3. **Cost estimation** — queries Prometheus for actual CPU/memory usage vs declared requests, calculates monthly cost and potential savings
-4. **Dashboard** — global infrastructure stats, team distribution, risk overview
+- **Dependency diagram** — interactive graph with pan/zoom, layer toggles, node search, edge tooltips, and risk-based color coding (🔴 critical / 🟡 warning / 🟢 healthy)
+- **AI analysis** — 5-stage streaming analysis per service (Purpose, Risks, Improvements, Security, Dependencies) powered by Claude Sonnet via Anthropic API, with Ollama support for fully local/offline deployments
+- **Risk dashboard** — global risk scoring across all services with severity filtering and click-to-navigate
+- **Cost estimation** — per-service monthly cost breakdown (CPU + memory) based on approximate AWS EKS on-demand pricing, with actual vs requested comparison when Prometheus is connected
+- **Top cost services** — ranked leaderboard with CPU/memory split bars
+- **Team ownership** — donut chart with clickable team slices showing per-team service lists
+- **Unused resource detection** — orphaned ConfigMaps, Secrets, and Services with no attached deployments
+- **PDF/Markdown export** — full infrastructure report with cluster summary, risk scorecard, and team ownership
+- **Health page** — `/health` endpoint showing graph status, data freshness, Prometheus connectivity, AI provider, memory usage and uptime
 
-## Quick start (with sample data — no cluster needed)
-
-```bash
-git clone https://github.com/your-username/pafis.git
-cd pafis
-npm install
-cp .env.local.example .env.local
-
-# Generate realistic fake manifests to explore the UI
-npm run sample-data
-
-# Edit .env.local and set:
-#   PAFIS_BASE=./data
-#   ANTHROPIC_API_KEY=sk-ant-...
-
-npm run dev
-# Open http://localhost:3000
-```
-
-## Quick start (from a real cluster)
-
-```bash
-# From minikube
-npm run fetch:minikube
-
-# From any cluster (uses current kubectl context)
-npm run fetch:cluster
-
-# From a specific context / namespace
-bash scripts/fetch-manifests.sh --context my-context --namespace production
-
-# Then point PAFIS at the data
-echo "PAFIS_BASE=./data" >> .env.local
-npm run dev
-```
-
-## Prerequisites
-
-- **Node.js 20+** (install via [nvm](https://github.com/nvm-sh/nvm))
-- **kubectl** — for cluster fetching (optional)
-- **helm** — for Helm release fetching (optional)
-- **Anthropic API key** or **Ollama** — for AI analysis
-
-## Configuration
-
-```env
-# Path to your manifest data (populated by fetch scripts or sample-data)
-PAFIS_BASE=./data
-
-# Prometheus URL (optional — cost panel disabled without it)
-PROMETHEUS_URL=http://localhost:9090
-
-# AI Provider: "anthropic" (default) or "ollama"
-AI_PROVIDER=anthropic
-ANTHROPIC_API_KEY=sk-ant-...
-
-# Ollama (alternative to Anthropic)
-# AI_PROVIDER=ollama
-# OLLAMA_URL=http://localhost:11434
-# OLLAMA_MODEL=llama3
-```
-
-## Data directory structure
-
-```
-data/
-├── kubernetes/
-│   ├── deploy/          # Deployment YAML files
-│   ├── svc/             # Service YAML files
-│   ├── ing/             # Ingress YAML files
-│   ├── job/             # Job YAML files
-│   ├── servicemonitors/ # Prometheus ServiceMonitor YAML files
-│   └── configmaps/      # ConfigMap YAML files
-└── helm-charts/         # Helm charts (Chart.yaml files)
-```
-
-The `fetch-manifests.sh` script populates this automatically. For custom setups, override individual paths with env vars (see `src/lib/config.ts`).
-
-## Docker
-
-```bash
-docker build -t pafis:latest .
-
-# Mount your manifest data
-docker run --rm \
-  -p 3000:3000 \
-  -v /path/to/your/data:/data \
-  -e ANTHROPIC_API_KEY=sk-ant-... \
-  pafis:latest
-```
+---
 
 ## Architecture
 
 ```
-Browser (Next.js React)
-├── Dashboard — global stats, team distribution, risk overview
-├── Search — fuzzy autocomplete over all deployments + helm charts
-├── Dependency diagram — Mermaid with pan/zoom, layer toggles, hover tooltips
-├── AI analysis — 4-stage streaming (Purpose → Risks → Improvements → Dependencies)
-└── Cost panel — Prometheus metrics vs manifest resource requests
+Browser (Next.js App Router)
+├── Dashboard        — global stats, risk overview, team ownership, top costs
+├── Service view     — dependency diagram, AI analysis, cost breakdown
+├── Report (/report) — printable PDF export
+└── Health (/health) — operational status page
 
 Next.js API Routes
-├── GET  /api/services        → service index (fuzzy search)
-├── GET  /api/graph/:name     → dependency subgraph → Mermaid syntax
-├── GET  /api/manifest/:name  → raw YAML + metadata + family
-├── POST /api/analyze/:name   → AI streaming analysis
-├── GET  /api/metrics/:name   → Prometheus cost data
-└── GET  /api/stats           → global infrastructure stats
-
-Data Pipeline (parsed at startup → in-memory graph)
-├── Deployment parser → nodes + configmap/secret/database edges
-├── Service parser → selector-based links to deployments
-├── Ingress parser → host/path routing to services
-├── Helm parser → Chart.yaml dependency graph
-├── Network policy parser → service-to-service ACL edges
-├── CONNECTION_CHECKER_SERVICES → kafka/rabbitmq/redis/inter-service deps
-└── ServiceMonitor parser → monitoring links
+├── GET  /api/services      → service index with fuzzy search
+├── GET  /api/graph/:name   → Mermaid subgraph for dependency diagram
+├── GET  /api/manifest/:name → raw YAML + metadata
+├── POST /api/analyze/:name → AI streaming analysis (5 stages)
+├── GET  /api/metrics/:name → Prometheus cost data
+├── GET  /api/stats         → global infrastructure stats
+├── GET  /api/risks         → per-service risk scores
+├── GET  /api/unused        → orphaned resource detection
+├── GET  /api/topcost       → top 10 most expensive services
+├── GET  /api/report-md     → Markdown export
+└── GET  /api/health        → operational health check
 ```
+
+---
+
+## How data works
+
+PAFIS is a **static snapshot tool** — it reads manifest files at startup and serves everything from memory. It does not connect to your cluster at runtime.
+
+```
+kubectl (any cluster)
+       ↓
+npm run fetch:minikube   # or fetch:cluster
+       ↓
+./data/kubernetes/       # YAML files on disk
+       ↓
+PAFIS parses at startup → in-memory graph → API
+```
+
+**Benefits:** works offline, air-gapped, and in CI/CD pipelines without cluster permissions at runtime.  
+**Live mode:** possible via `kubectl watch` with read-only RBAC — on the roadmap.
+
+---
+
+## Getting started
+
+```bash
+# Clone
+git clone https://github.com/Paffss/pafis.git
+cd pafis
+
+# Install
+npm install
+
+# Generate sample data (fintech/SaaS/DevOps — 40+ services)
+npm run sample-data
+
+# Configure
+cp .env.local.example .env.local
+# Edit .env.local — add your ANTHROPIC_API_KEY
+
+# Run
+npm run dev
+# → http://localhost:3000
+```
+
+### Fetch from a real cluster
+
+```bash
+# Minikube
+npm run fetch:minikube
+
+# Any cluster (uses current kubectl context)
+npm run fetch:cluster
+
+# Specific namespace only
+bash scripts/fetch-manifests.sh --context my-context --namespace production
+```
+
+---
+
+## Configuration
+
+| Variable | Description | Default |
+|---|---|---|
+| `PAFIS_BASE` | Path to manifest data directory | `./data` |
+| `ANTHROPIC_API_KEY` | Claude API key ([console.anthropic.com](https://console.anthropic.com)) | — |
+| `AI_PROVIDER` | `anthropic` or `ollama` | `anthropic` |
+| `OLLAMA_URL` | Ollama base URL (if using local LLM) | `http://localhost:11434` |
+| `OLLAMA_MODEL` | Ollama model name | `llama3` |
+| `PROMETHEUS_URL` | Prometheus URL for real usage metrics | `http://localhost:9090` |
+| `NEXT_PUBLIC_DATA_MODE` | `sample`, `cluster`, or `auto` | `auto` |
+| `DEMO_USERNAME` | Login username | `user` |
+| `DEMO_PASSWORD` | Login password | — |
+| `SESSION_SECRET` | Cookie signing secret | — |
+
+---
+
+## Deployment
+
+Infrastructure is managed with Terraform (AWS App Runner + ECR + Route 53 + Secrets Manager).
+
+```bash
+# First time setup
+cd terraform
+cp terraform.tfvars.example terraform.tfvars
+# Fill in terraform.tfvars
+
+terraform init
+terraform apply
+
+# Build and push Docker image
+bash scripts/deploy.sh
+
+# Tear down (after demo)
+terraform destroy
+```
+
+CI/CD via GitHub Actions — every push to `main`:
+1. Lint + type check
+2. Build Next.js
+3. Build Docker image → push to ECR
+4. Trigger App Runner redeployment
+
+---
+
+## Cost estimation methodology
+
+Costs are estimated using **approximate AWS EKS on-demand pricing** (`t3.medium`, `us-east-1`):
+
+- CPU: `$0.031 / core-hour × 730 hours/month × replicas`
+- Memory: `$0.004 / GiB-hour × 730 hours/month × replicas`
+
+These figures are useful for **relative comparisons** between services, not precise billing. Actual cost depends on instance type, region, and pricing tier. Does not include networking, storage, or load balancer costs. Prometheus must be connected for real usage-based calculations.
+
+---
 
 ## Tech stack
 
-- **Next.js 16** (App Router, TypeScript)
-- **TailwindCSS** — cyber-themed dark UI
-- **Mermaid** — interactive dependency diagrams
-- **@anthropic-ai/sdk** — Claude AI analysis
-- **js-yaml** — YAML parsing
-- **Fuse.js** — fuzzy search
-- **Prometheus HTTP API** — resource metrics & cost estimation
+- **Frontend:** Next.js 15 (App Router), TypeScript, TailwindCSS, Mermaid
+- **AI:** Anthropic Claude Sonnet, Ollama (local fallback)
+- **Infra:** AWS App Runner, ECR, Route 53, Secrets Manager
+- **IaC:** Terraform
+- **CI/CD:** GitHub Actions
+- **Observability:** Prometheus (optional)
