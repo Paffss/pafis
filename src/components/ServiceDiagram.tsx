@@ -81,6 +81,8 @@ export default function ServiceDiagram({ name }: ServiceDiagramProps) {
   const [hoveredNode, setHoveredNode] = useState<DiagramNode | null>(null);
   const [hoveredEdge, setHoveredEdge] = useState<{ source: string; target: string; type: string; label?: string } | null>(null);
   const [edgePos, setEdgePos] = useState({ x: 0, y: 0 });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [matchedNodes, setMatchedNodes] = useState<Set<string>>(new Set());
 
   // Fetch graph data
   useEffect(() => {
@@ -241,6 +243,43 @@ export default function ServiceDiagram({ name }: ServiceDiagramProps) {
     renderDiagram();
   }, [renderDiagram]);
 
+  // Highlight matched nodes when search term changes
+  useEffect(() => {
+    if (!containerRef.current || !rawData) return;
+    const term = searchTerm.toLowerCase().trim();
+
+    // Find matching node IDs
+    const matched = new Set<string>();
+    if (term) {
+      rawData.nodes.forEach(n => {
+        if (n.name.toLowerCase().includes(term)) matched.add(n.id);
+      });
+    }
+    setMatchedNodes(matched);
+
+    // Apply visual highlight to SVG nodes
+    containerRef.current.querySelectorAll('.node').forEach(el => {
+      const elId = el.id || '';
+      const node = rawData.nodes.find(n => {
+        const sanitized = n.id.replace(/[^a-zA-Z0-9]/g, '_');
+        return elId.includes(sanitized);
+      });
+      if (!node) return;
+      const rect = el.querySelector('rect, polygon, circle, path');
+      if (!rect) return;
+      if (!term) {
+        (rect as HTMLElement).style.filter = '';
+        (el as HTMLElement).style.opacity = '1';
+      } else if (matched.has(node.id)) {
+        (rect as HTMLElement).style.filter = 'drop-shadow(0 0 8px rgba(34,211,238,0.8))';
+        (el as HTMLElement).style.opacity = '1';
+      } else {
+        (rect as HTMLElement).style.filter = '';
+        (el as HTMLElement).style.opacity = '0.25';
+      }
+    });
+  }, [searchTerm, rawData]);
+
   const toggleLayer = (type: string) => {
     setLayers(prev => ({ ...prev, [type]: !prev[type] }));
   };
@@ -336,6 +375,29 @@ export default function ServiceDiagram({ name }: ServiceDiagramProps) {
       <div className="flex items-center justify-between px-4 py-2 border-b border-white/5">
         <h3 className="text-sm font-medium text-slate-400">Dependency Graph</h3>
         <div className="flex items-center gap-3">
+          {/* Search */}
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search nodes..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className="text-xs px-3 py-1 pl-7 rounded-lg bg-zinc-800 border border-white/5 text-zinc-300 placeholder-zinc-600 focus:outline-none focus:border-cyan-500/30 w-36"
+            />
+            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-600 text-xs">⌕</span>
+            {searchTerm && (
+              <button onClick={() => setSearchTerm('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 text-xs">
+                ✕
+              </button>
+            )}
+          </div>
+          {searchTerm && matchedNodes.size > 0 && (
+            <span className="text-xs text-cyan-400">{matchedNodes.size} match{matchedNodes.size !== 1 ? 'es' : ''}</span>
+          )}
+          {searchTerm && matchedNodes.size === 0 && (
+            <span className="text-xs text-zinc-500">no matches</span>
+          )}
           {!loading && (
             <span className="text-xs text-slate-500">
               {filteredCounts.nodes} nodes, {filteredCounts.edges} edges

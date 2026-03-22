@@ -24,6 +24,22 @@ function nodeLabel(node: GraphNode): string {
   return padLabel(node.name);
 }
 
+// Calculate risk score for a deployment node
+function getRiskLevel(node: GraphNode): 'critical' | 'warning' | 'ok' {
+  if (node.type !== 'deployment') return 'ok';
+  let critical = 0;
+  let warnings = 0;
+  if (!node.metadata.cpuLimit && !node.metadata.memoryLimit) critical++;
+  if (!node.metadata.hasLivenessProbe) critical++;
+  if (!node.metadata.hasReadinessProbe) critical++;
+  if (node.metadata.image?.toString().endsWith(':latest')) critical++;
+  if ((node.metadata.replicas as number ?? 1) === 1) warnings++;
+  if (!node.metadata.cpuRequest && !node.metadata.memoryRequest) warnings++;
+  if (critical > 0) return 'critical';
+  if (warnings > 0) return 'warning';
+  return 'ok';
+}
+
 export function generateMermaid(subgraph: Subgraph): string {
   if (subgraph.nodes.length === 0) return 'graph TD\n  empty["No data found"]';
 
@@ -53,6 +69,9 @@ export function generateMermaid(subgraph: Subgraph): string {
     return (groupConfig[a[0]]?.order || 99) - (groupConfig[b[0]]?.order || 99);
   });
 
+  // Track risk classes per node
+  const nodeRiskClass: Record<string, string> = {};
+
   // Add nodes in subgraphs
   for (const [type, nodes] of sortedGroups) {
     const config = groupConfig[type] || { label: type };
@@ -60,7 +79,13 @@ export function generateMermaid(subgraph: Subgraph): string {
     for (const node of nodes) {
       const sid = sanitizeId(node.id);
       const label = escapeLabel(nodeLabel(node));
-      // Use different shapes for different types
+
+      // Assign risk class for deployments
+      if (node.type === 'deployment') {
+        const risk = getRiskLevel(node);
+        nodeRiskClass[sid] = risk;
+      }
+
       switch (node.type) {
         case 'database':
           lines.push(`    ${sid}[("${label}")]`);
@@ -106,9 +131,12 @@ export function generateMermaid(subgraph: Subgraph): string {
     }
   }
 
-  // Add styles
+  // Base styles
   lines.push('');
   lines.push('  classDef deploy fill:#3b82f6,stroke:#1d4ed8,color:#fff');
+  lines.push('  classDef deploy_warn fill:#f59e0b,stroke:#b45309,color:#000');
+  lines.push('  classDef deploy_crit fill:#ef4444,stroke:#b91c1c,color:#fff');
+  lines.push('  classDef deploy_ok fill:#22c55e,stroke:#15803d,color:#fff');
   lines.push('  classDef svc fill:#8b5cf6,stroke:#6d28d9,color:#fff');
   lines.push('  classDef ing fill:#f97316,stroke:#c2410c,color:#fff');
   lines.push('  classDef cm fill:#22c55e,stroke:#15803d,color:#fff');
@@ -121,7 +149,13 @@ export function generateMermaid(subgraph: Subgraph): string {
   for (const node of subgraph.nodes) {
     const sid = sanitizeId(node.id);
     switch (node.type) {
-      case 'deployment': lines.push(`  class ${sid} deploy`); break;
+      case 'deployment': {
+        const risk = nodeRiskClass[sid];
+        if (risk === 'critical') lines.push(`  class ${sid} deploy_crit`);
+        else if (risk === 'warning') lines.push(`  class ${sid} deploy_warn`);
+        else lines.push(`  class ${sid} deploy_ok`);
+        break;
+      }
       case 'service': lines.push(`  class ${sid} svc`); break;
       case 'ingress': lines.push(`  class ${sid} ing`); break;
       case 'configmap': lines.push(`  class ${sid} cm`); break;
