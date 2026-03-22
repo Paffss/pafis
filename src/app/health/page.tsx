@@ -50,23 +50,30 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 }
 
 export default function HealthPage() {
-  const [data, setData]         = useState<HealthData | null>(null);
-  const [loading, setLoading]   = useState(true);
+  const [data, setData]               = useState<HealthData | null>(null);
+  const [loading, setLoading]         = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
 
-  const fetch_ = useCallback(() => {
+  const refresh = useCallback(() => {
     setLoading(true);
     fetch('/api/health')
       .then(r => r.json())
-      .then(d => { setData(d); setLastRefresh(new Date()); setLoading(false); })
+      .then((d: HealthData) => {
+        setData(d);
+        setLastRefresh(new Date());
+        setLoading(false);
+      })
       .catch(() => setLoading(false));
   }, []);
 
   useEffect(() => {
-    fetch_();
-    const interval = setInterval(fetch_, 30000); // auto-refresh every 30s
+    // initial load
+    refresh();
+    // auto-refresh every 30s
+    const interval = setInterval(refresh, 30000);
     return () => clearInterval(interval);
-  }, [fetch_]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="min-h-screen relative overflow-hidden">
@@ -86,10 +93,10 @@ export default function HealthPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={fetch_}
+            <button onClick={refresh}
               className="text-sm px-3 py-1.5 rounded-lg transition-all"
               style={{ background: 'rgba(34,211,238,0.08)', border: '1px solid rgba(34,211,238,0.15)', color: '#22d3ee' }}>
-              {loading ? 'Refreshing...' : '↺ Refresh'}
+              {loading ? "Refreshing..." : "↺ Refresh"}
             </button>
             <Link href="/"
               className="text-sm px-3 py-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 transition-colors"

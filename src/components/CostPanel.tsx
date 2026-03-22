@@ -300,7 +300,7 @@ function DonutChart({ title, data }: { title: string; data: { label: string; val
   const strokeWidth = 12;
 
   // Pre-compute start angles to avoid mutation inside render
-  const startAngles = data.reduce<number[]>((acc, _) => {
+  const startAngles = data.reduce<number[]>((acc) => {
     const prev = acc[acc.length - 1] ?? 0;
     const prevAngle = data[acc.length - 1] ? (data[acc.length - 1].value / total) * 360 : 0;
     return [...acc, prev + (acc.length === 0 ? 0 : prevAngle)];
