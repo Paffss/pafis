@@ -1,0 +1,5 @@
+aws_region        = "eu-west-1"
+anthropic_api_key = "sk-ant-..."
+demo_username     = "user"
+demo_password     = "pass123!"
+session_secret    = "replace-with-a-long-random-string"

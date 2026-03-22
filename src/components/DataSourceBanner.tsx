@@ -70,7 +70,7 @@ export default function DataSourceBanner({ mode = 'auto' }: DataSourceBannerProp
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500 pt-1">
                 <span>⚠️ Does not include storage or load balancer costs</span>
                 <span>⚠️ Actual cost depends on instance type, region and pricing tier</span>
-                <span>📊 Connect Prometheus for real usage-based calculations</span>
+                <span>📊 Prometheus must be connected for real usage-based calculations</span>
               </div>
             </div>
 
