@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 interface ReportData {
@@ -74,9 +75,9 @@ export default function ReportPage() {
         >
           ↓ Save as PDF
         </button>
-        <a href="/" className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 bg-white border border-gray-200 shadow-lg">
+        <Link href="/" className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 bg-white border border-gray-200 shadow-lg">
           ← Back
-        </a>
+        </Link>
       </div>
 
       {/* Report content */}

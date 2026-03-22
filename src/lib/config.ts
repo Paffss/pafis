@@ -17,7 +17,10 @@ export const DATA_PATHS = {
 export const PROMETHEUS_URL  = process.env.PROMETHEUS_URL  || 'http://localhost:9090';
 export const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
 
-// AI Provider: "anthropic" or "ollama"
+// AI Provider: "anthropic" (default) or "ollama"
+// Ollama enables fully local/offline AI analysis with any compatible LLM
+// (llama3, mistral, qwen, deepseek, etc.) — no API key or internet required.
+// Install: https://ollama.com | then: ollama pull llama3
 export const AI_PROVIDER = process.env.AI_PROVIDER || (ANTHROPIC_API_KEY ? 'anthropic' : 'ollama');
 
 // Ollama settings (optional fallback)

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState, useCallback } from 'react';
 
 interface HealthData {
@@ -90,11 +91,11 @@ export default function HealthPage() {
               style={{ background: 'rgba(34,211,238,0.08)', border: '1px solid rgba(34,211,238,0.15)', color: '#22d3ee' }}>
               {loading ? 'Refreshing...' : '↺ Refresh'}
             </button>
-            <a href="/"
+            <Link href="/"
               className="text-sm px-3 py-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 transition-colors"
               style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
               ← Dashboard
-            </a>
+            </Link>
           </div>
         </div>
 
