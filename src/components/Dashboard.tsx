@@ -100,7 +100,7 @@ export default function Dashboard({ onSelectService }: DashboardProps) {
 
         {/* Graph stats row */}
         <div className="grid grid-cols-4 gap-3 mt-5">
-          <MiniStat label="Graph Nodes" value={stats.totalNodes} />
+          <MiniStat label="Graph Objects" value={stats.totalNodes} />
           <MiniStat label="Graph Edges" value={stats.edges} />
           <MiniStat label="ConfigMaps" value={stats.configmaps} />
           <MiniStat label="Secrets" value={stats.secrets} />
