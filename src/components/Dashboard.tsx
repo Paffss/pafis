@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import RiskSummary from './RiskSummary';
 import UnusedResources from './UnusedResources';
 import TeamPanel from './TeamPanel';
+import TopCostServices from './TopCostServices';
 
 interface Stats {
   totalNodes: number;
@@ -140,30 +141,38 @@ export default function Dashboard({ onSelectService }: DashboardProps) {
             </div>
           </div>
 
-          {/* Team distribution */}
-          <div className="glass-panel p-5">
-            <h3 className="text-sm font-bold uppercase tracking-widest text-zinc-500 mb-4">
-              Team Ownership ({teamEntries.length} teams)
-            </h3>
-            <TeamDonut
-              data={teamEntries}
-              total={stats.deployments}
-              onSelectTeam={(name, color) => setSelectedTeam(prev =>
-                prev?.name === name ? null : { name, color }
+          {/* Bottom row — team donut + top costs */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
+            {/* Team distribution — 1/3 width, team services expand below donut */}
+            <div className="glass-panel p-5 space-y-4">
+              <h3 className="text-sm font-bold uppercase tracking-widest text-zinc-500">
+                Team Ownership ({teamEntries.length} teams)
+              </h3>
+              <TeamDonut
+                data={teamEntries}
+                total={stats.deployments}
+                onSelectTeam={(name, color) => setSelectedTeam(prev =>
+                  prev?.name === name ? null : { name, color }
+                )}
+                selectedTeam={selectedTeam?.name}
+              />
+              {/* Team services — inline below donut */}
+              {selectedTeam && (
+                <TeamPanel
+                  team={selectedTeam.name}
+                  color={selectedTeam.color}
+                  onSelectService={name => onSelectService?.(name)}
+                  onClose={() => setSelectedTeam(null)}
+                  inline
+                />
               )}
-              selectedTeam={selectedTeam?.name}
-            />
-          </div>
+            </div>
 
-          {/* Team panel — shown when a team is selected */}
-          {selectedTeam && (
-            <TeamPanel
-              team={selectedTeam.name}
-              color={selectedTeam.color}
-              onSelectService={name => onSelectService?.(name)}
-              onClose={() => setSelectedTeam(null)}
-            />
-          )}
+            {/* Top cost services — 2/3 width */}
+            <div className="lg:col-span-2">
+              <TopCostServices onSelectService={name => onSelectService?.(name)} />
+            </div>
+          </div>
         </div>
       ) : activeTab === 'risks' ? (
         <RiskSummary onSelectService={name => onSelectService?.(name)} />
@@ -220,73 +229,80 @@ function TeamDonut({ data, total, onSelectTeam, selectedTeam }: {
   }, []);
 
   return (
-    <div className="flex items-center gap-10 justify-center flex-wrap">
-      <div className="relative w-[200px] h-[200px] shrink-0">
-        <svg viewBox="0 0 200 200" className="w-full h-full -rotate-90" style={{ cursor: 'pointer' }}>
-          <circle cx={cx} cy={cy} r={radius} fill="transparent" stroke="rgba(255,255,255,0.03)" strokeWidth={strokeWidth} />
-          {data.map(([team, count], i) => {
-            const angle = (count / total) * 360;
-            const start = startAngles[i];
-            const end = start + angle;
-            const color = TEAM_COLORS[i % TEAM_COLORS.length];
-            const isSelected = selectedTeam === team;
-            if (angle < 0.5) return null;
-            if (angle >= 359.5) return (
-              <circle key={i} cx={cx} cy={cy} r={radius} fill="transparent"
-                stroke={color} strokeWidth={strokeWidth}
-                opacity={selectedTeam && !isSelected ? 0.3 : 1}
-                onClick={() => onSelectTeam(team, color)}
-                style={{ cursor: 'pointer', transition: 'opacity 0.2s' }} />
-            );
-            const x1 = cx + radius * Math.cos((start * Math.PI) / 180);
-            const y1 = cy + radius * Math.sin((start * Math.PI) / 180);
-            const x2 = cx + radius * Math.cos((end * Math.PI) / 180);
-            const y2 = cy + radius * Math.sin((end * Math.PI) / 180);
-            return (
-              <path key={i}
-                d={`M ${x1} ${y1} A ${radius} ${radius} 0 ${angle > 180 ? 1 : 0} 1 ${x2} ${y2}`}
-                fill="transparent" stroke={color}
-                strokeWidth={isSelected ? strokeWidth + 4 : strokeWidth}
-                opacity={selectedTeam && !isSelected ? 0.3 : 1}
-                onClick={() => onSelectTeam(team, color)}
-                style={{ cursor: 'pointer', transition: 'all 0.2s' }} />
-            );
-          })}
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-          {selectedTeam ? (
-            <>
-              <div className="text-2xl font-black text-zinc-100">
-                {data.find(([t]) => t === selectedTeam)?.[1] ?? 0}
-              </div>
-              <div className="text-xs text-zinc-400 text-center max-w-[80px] truncate">{selectedTeam === 'unknown' ? 'unowned' : selectedTeam}</div>
-            </>
-          ) : (
-            <>
-              <div className="text-3xl font-black text-zinc-100">{total}</div>
-              <div className="text-xs uppercase tracking-widest text-zinc-500">services</div>
-            </>
-          )}
+    <div className="space-y-4">
+      {/* Donut centered */}
+      <div className="flex justify-center">
+        <div className="relative w-[180px] h-[180px] shrink-0">
+          <svg viewBox="0 0 200 200" className="w-full h-full -rotate-90" style={{ cursor: 'pointer' }}>
+            <circle cx={cx} cy={cy} r={radius} fill="transparent" stroke="rgba(255,255,255,0.03)" strokeWidth={strokeWidth} />
+            {data.map(([team, count], i) => {
+              const angle = (count / total) * 360;
+              const start = startAngles[i];
+              const end = start + angle;
+              const color = TEAM_COLORS[i % TEAM_COLORS.length];
+              const isSelected = selectedTeam === team;
+              if (angle < 0.5) return null;
+              if (angle >= 359.5) return (
+                <circle key={i} cx={cx} cy={cy} r={radius} fill="transparent"
+                  stroke={color} strokeWidth={strokeWidth}
+                  opacity={selectedTeam && !isSelected ? 0.3 : 1}
+                  onClick={() => onSelectTeam(team, color)}
+                  style={{ cursor: 'pointer', transition: 'opacity 0.2s' }} />
+              );
+              const x1 = cx + radius * Math.cos((start * Math.PI) / 180);
+              const y1 = cy + radius * Math.sin((start * Math.PI) / 180);
+              const x2 = cx + radius * Math.cos((end * Math.PI) / 180);
+              const y2 = cy + radius * Math.sin((end * Math.PI) / 180);
+              return (
+                <path key={i}
+                  d={`M ${x1} ${y1} A ${radius} ${radius} 0 ${angle > 180 ? 1 : 0} 1 ${x2} ${y2}`}
+                  fill="transparent" stroke={color}
+                  strokeWidth={isSelected ? strokeWidth + 4 : strokeWidth}
+                  opacity={selectedTeam && !isSelected ? 0.3 : 1}
+                  onClick={() => onSelectTeam(team, color)}
+                  style={{ cursor: 'pointer', transition: 'all 0.2s' }} />
+              );
+            })}
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+            {selectedTeam ? (
+              <>
+                <div className="text-2xl font-black text-zinc-100">
+                  {data.find(([t]) => t === selectedTeam)?.[1] ?? 0}
+                </div>
+                <div className="text-xs text-zinc-400 text-center max-w-[80px] truncate">
+                  {selectedTeam === 'unknown' ? 'unowned' : selectedTeam}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-3xl font-black text-zinc-100">{total}</div>
+                <div className="text-xs uppercase tracking-widest text-zinc-500">services</div>
+              </>
+            )}
+          </div>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-x-8 gap-y-2">
+
+      {/* Team legend — compact grid below the donut */}
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
         {data.map(([team, count], i) => {
           const color = TEAM_COLORS[i % TEAM_COLORS.length];
           const isSelected = selectedTeam === team;
           return (
             <button key={team}
               onClick={() => onSelectTeam(team, color)}
-              className="flex items-center gap-2 transition-all text-left"
+              className="flex items-center gap-2 transition-all text-left rounded px-1 py-0.5 hover:bg-white/3"
               style={{ opacity: selectedTeam && !isSelected ? 0.4 : 1 }}
             >
-              <span className="w-2.5 h-2.5 rounded-full shrink-0 transition-transform"
+              <span className="w-2 h-2 rounded-full shrink-0 transition-transform"
                 style={{ background: color, transform: isSelected ? 'scale(1.4)' : 'scale(1)' }} />
-              <span className="text-sm truncate max-w-[160px] transition-colors"
+              <span className="text-xs truncate transition-colors"
                 style={{ color: isSelected ? '#e2e8f0' : '#a1a1aa' }}
                 title={team}>
                 {team === 'unknown' ? <span className="text-red-400">unowned</span> : team}
               </span>
-              <span className="text-sm text-zinc-500 font-mono ml-auto">{count}</span>
+              <span className="text-xs text-zinc-600 font-mono ml-auto">{count}</span>
             </button>
           );
         })}
