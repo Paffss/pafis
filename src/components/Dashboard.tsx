@@ -67,17 +67,34 @@ export default function Dashboard({ onSelectService }: DashboardProps) {
               {stats.services} services · {stats.helmCharts} helm charts · {stats.databases} databases · {stats.networkPolicies} network rules
             </p>
           </div>
-          {/* Risk badge */}
-          {totalRisks > 0 && (
-            <button
-              onClick={() => setActiveTab('risks')}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all"
-              style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}
+          {/* Right side actions */}
+          <div className="flex items-center gap-3">
+            {/* Risk badge */}
+            {totalRisks > 0 && (
+              <button
+                onClick={() => setActiveTab('risks')}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all"
+                style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}
+              >
+                <span className="text-red-400 text-2xl font-bold">{totalRisks}</span>
+                <span className="text-red-400/70 text-sm">critical issues →</span>
+              </button>
+            )}
+            {/* Export button */}
+            <a
+              href="/report"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all"
+              style={{
+                color: '#22d3ee',
+                background: 'rgba(34,211,238,0.08)',
+                border: '1px solid rgba(34,211,238,0.15)',
+              }}
             >
-              <span className="text-red-400 text-2xl font-bold">{totalRisks}</span>
-              <span className="text-red-400/70 text-sm">critical issues →</span>
-            </button>
-          )}
+              ↓ Export PDF
+            </a>
+          </div>
         </div>
 
         {/* Graph stats row */}
