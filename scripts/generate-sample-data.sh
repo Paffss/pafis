@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # =============================================================================
 # PAFIS — Sample Data Generator
-# Creates a realistic set of fake K8s manifests so you can run PAFIS locally
-# without connecting to any cluster at all. Great for demos and development.
+# Creates a realistic set of fake K8s manifests simulating a mid-size platform.
+# Covers: SaaS core, Fintech, DevOps tooling
 # =============================================================================
 set -euo pipefail
 
@@ -18,14 +18,29 @@ mkdir -p \
 
 echo "Generating sample manifests in $OUT ..."
 
-# ── Helper ─────────────────────────────────────────────────────────────────
+# ── Helpers ──────────────────────────────────────────────────────────────────
 write_deploy() {
-  local NAME=$1 TEAM=$2 REPLICAS=$3 CPU_REQ=$4 CPU_LIM=$5 MEM_REQ=$6 MEM_LIM=$7 IMAGE=$8 DEPS="${9:-}"
-  local CONN_CHECKER=""
+  local NAME=$1 TEAM=$2 REPLICAS=$3 CPU_REQ=$4 CPU_LIM=$5 MEM_REQ=$6 MEM_LIM=$7 IMAGE=$8
+  local HAS_LIVENESS=${9:-true} HAS_READINESS=${10:-true} DEPS="${11:-}"
+  local CONN=""
   if [[ -n "$DEPS" ]]; then
-    CONN_CHECKER="        - name: CONNECTION_CHECKER_SERVICES
+    CONN="        - name: CONNECTION_CHECKER_SERVICES
           value: \"$DEPS\""
   fi
+  local LIVENESS="" READINESS=""
+  if [[ "$HAS_LIVENESS" == "true" ]]; then
+    LIVENESS="        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080"
+  fi
+  if [[ "$HAS_READINESS" == "true" ]]; then
+    READINESS="        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080"
+  fi
+
   cat > "$OUT/kubernetes/deploy/$NAME.yaml" << YAML
 apiVersion: apps/v1
 kind: Deployment
@@ -53,31 +68,23 @@ spec:
           requests:
             cpu: $CPU_REQ
             memory: $MEM_REQ
-          limits:
+$(if [[ -n "$CPU_LIM" ]]; then echo "          limits:
             cpu: $CPU_LIM
-            memory: $MEM_LIM
+            memory: $MEM_LIM"; fi)
         ports:
         - name: http
           containerPort: 8080
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8080
-        readinessProbe:
-          httpGet:
-            path: /ready
-            port: 8080
+$LIVENESS
+$READINESS
         env:
         - name: APP_ENV
           value: production
-        - name: LOG_LEVEL
-          value: info
         - name: DB_HOST
           valueFrom:
             configMapKeyRef:
               name: $NAME-config
               key: db_host
-$CONN_CHECKER
+$CONN
         volumeMounts:
         - name: secret-vol
           mountPath: /etc/secrets
@@ -89,7 +96,7 @@ YAML
 }
 
 write_svc() {
-  local NAME=$1
+  local NAME=$1 PORT=${2:-80}
   cat > "$OUT/kubernetes/svc/$NAME.yaml" << YAML
 apiVersion: v1
 kind: Service
@@ -100,7 +107,7 @@ spec:
   selector:
     app: $NAME
   ports:
-  - port: 80
+  - port: $PORT
     targetPort: 8080
 YAML
 }
@@ -116,7 +123,25 @@ metadata:
 data:
   db_host: "$NAME-db.default.svc.cluster.local"
   cache_ttl: "300"
-  feature_flags: "v2_ui=true,dark_mode=true"
+  log_level: "info"
+YAML
+}
+
+write_sm() {
+  local NAME=$1
+  cat > "$OUT/kubernetes/servicemonitors/$NAME.yaml" << YAML
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: $NAME
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: $NAME
+  endpoints:
+  - port: http
+    path: /metrics
 YAML
 }
 
@@ -128,95 +153,158 @@ apiVersion: v2
 name: $NAME
 version: $VERSION
 description: $DESC
-dependencies: []
 YAML
 }
 
-# ── Generate services ────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# SAAS CORE — platform team
+# ══════════════════════════════════════════════════════════════════════════════
 
-# api-gateway — frontend-facing, high replicas, routes to many services
-write_deploy "api-gateway"    "platform"  3  "200m" "500m"  "256Mi"  "512Mi"  "myrepo/api-gateway:v2.1.0" \
-  "auth-service:auth-service:8080,user-service:user-service:8080,product-service:product-service:8080"
-write_deploy "api-gateway-consumer" "platform" 2 "100m" "300m" "128Mi" "256Mi" "myrepo/api-gateway:v2.1.0" ""
+# api-gateway — 3 replicas, good config
+write_deploy "api-gateway" "platform" 3 "200m" "500m" "256Mi" "512Mi" "myrepo/api-gateway:v2.3.1" "true" "true" \
+  "auth-service:auth-service:8080,user-service:user-service:8080,billing-service:billing-service:8080"
+write_deploy "api-gateway-consumer" "platform" 2 "100m" "300m" "128Mi" "256Mi" "myrepo/api-gateway:v2.3.1" "true" "true" ""
 
 # auth
-write_deploy "auth-service"   "platform"  2  "100m" "250m"  "128Mi"  "256Mi"  "myrepo/auth-service:v1.5.2" \
+write_deploy "auth-service" "platform" 2 "150m" "400m" "256Mi" "512Mi" "myrepo/auth-service:v1.8.0" "true" "true" \
+  "redis:redis:6379,user-service:user-service:8080"
+write_deploy "token-service" "platform" 2 "100m" "250m" "128Mi" "256Mi" "myrepo/token-service:v1.2.0" "true" "true" \
   "redis:redis:6379"
 
-# user
-write_deploy "user-service"   "backend"   2  "150m" "400m"  "256Mi"  "512Mi"  "myrepo/user-service:v3.0.1" \
+# users
+write_deploy "user-service" "backend" 3 "200m" "500m" "384Mi" "768Mi" "myrepo/user-service:v4.1.0" "true" "true" \
+  "notification-service:notification-service:8080,audit-service:audit-service:8080"
+write_deploy "user-service-worker" "backend" 2 "100m" "300m" "128Mi" "256Mi" "myrepo/user-service:v4.1.0" "true" "true" ""
+write_deploy "profile-service" "backend" 2 "100m" "250m" "128Mi" "256Mi" "myrepo/profile-service:v2.0.0" "true" "true" \
+  "user-service:user-service:8080"
+
+# notifications
+write_deploy "notification-service" "platform" 1 "100m" "250m" "128Mi" "256Mi" "myrepo/notification-service:v3.0.0" "true" "true" \
+  "kafka:kafka:9092,rabbitmq:rabbitmq:5672"
+write_deploy "email-service" "platform" 1 "50m" "" "64Mi" "" "myrepo/email-service:v1.5.0" "false" "false" \
+  "kafka:kafka:9092"
+write_deploy "sms-service" "platform" 1 "50m" "150m" "64Mi" "128Mi" "myrepo/sms-service:v1.1.0" "true" "false" ""
+
+# billing
+write_deploy "billing-service" "billing" 2 "200m" "500m" "384Mi" "768Mi" "myrepo/billing-service:v2.1.0" "true" "true" \
+  "payment-service:payment-service:8080,invoice-service:invoice-service:8080"
+write_deploy "invoice-service" "billing" 2 "150m" "400m" "256Mi" "512Mi" "myrepo/invoice-service:v1.3.0" "true" "true" \
   "notification-service:notification-service:8080"
-write_deploy "user-service-worker" "backend" 1 "50m" "200m" "64Mi" "128Mi" "myrepo/user-service:v3.0.1" ""
+write_deploy "subscription-service" "billing" 2 "150m" "" "256Mi" "" "myrepo/subscription-service:v1.0.0" "true" "true" \
+  "billing-service:billing-service:8080,kafka:kafka:9092"
 
-# product
-write_deploy "product-service" "backend"  3  "200m" "600m"  "512Mi"  "1Gi"    "myrepo/product-service:v1.2.0" \
-  "inventory-service:inventory-service:8080,pricing-service:pricing-service:8080"
-
-# inventory
-write_deploy "inventory-service" "backend" 2 "100m" "300m" "256Mi" "512Mi" "myrepo/inventory-service:v0.9.4" ""
-
-# pricing — no limits set (risk!)
-write_deploy "pricing-service" "data"     1  "100m" ""      "128Mi"  ""       "myrepo/pricing-service:v0.3.1" \
+# analytics
+write_deploy "analytics-service" "data" 2 "500m" "2000m" "1Gi" "2Gi" "myrepo/analytics-service:v1.4.0" "true" "true" \
+  "kafka:kafka:9092"
+write_deploy "report-service" "data" 1 "1000m" "" "2Gi" "" "myrepo/report-service:v2.0.0" "false" "false" \
+  "analytics-service:analytics-service:8080,user-service:user-service:8080"
+write_deploy "metrics-aggregator" "data" 1 "200m" "500m" "512Mi" "1Gi" "myrepo/metrics-aggregator:v1.0.0" "true" "true" \
   "kafka:kafka:9092"
 
-# notification — single replica (SPOF risk!)
-write_deploy "notification-service" "platform" 1 "50m" "150m" "64Mi" "128Mi" "myrepo/notification-service:v2.0.0" \
-  "kafka:kafka:9092,rabbitmq:rabbitmq:5672"
+# frontend
+write_deploy "frontend" "frontend" 3 "100m" "300m" "128Mi" "256Mi" "myrepo/frontend:v5.2.0" "true" "true" \
+  "api-gateway:api-gateway:80"
+write_deploy "admin-panel" "frontend" 1 "100m" "200m" "128Mi" "256Mi" "myrepo/admin-panel:v1.0.0" "true" "true" \
+  "api-gateway:api-gateway:80"
 
-# report
-write_deploy "report-service" "data"      2  "500m" "2000m" "1Gi"    "2Gi"    "myrepo/report-service:v1.1.0" \
-  "user-service:user-service:8080,product-service:product-service:8080"
+# audit
+write_deploy "audit-service" "platform" 2 "100m" "250m" "128Mi" "256Mi" "myrepo/audit-service:v1.2.0" "true" "true" \
+  "kafka:kafka:9092"
 
-# frontend (no probes — risk!)
-cat > "$OUT/kubernetes/deploy/frontend.yaml" << YAML
+# ══════════════════════════════════════════════════════════════════════════════
+# FINTECH — payments team
+# ══════════════════════════════════════════════════════════════════════════════
+
+write_deploy "payment-service" "payments" 3 "300m" "800m" "512Mi" "1Gi" "myrepo/payment-service:v3.2.0" "true" "true" \
+  "fraud-service:fraud-service:8080,ledger-service:ledger-service:8080,kafka:kafka:9092"
+write_deploy "payment-worker" "payments" 2 "200m" "500m" "256Mi" "512Mi" "myrepo/payment-service:v3.2.0" "true" "true" ""
+
+write_deploy "fraud-service" "payments" 2 "500m" "1500m" "512Mi" "1Gi" "myrepo/fraud-service:v2.0.0" "true" "true" \
+  "kafka:kafka:9092,redis:redis:6379"
+write_deploy "fraud-ml-service" "payments" 1 "2000m" "" "4Gi" "" "myrepo/fraud-ml:v1.0.0" "false" "false" \
+  "kafka:kafka:9092"
+
+write_deploy "kyc-service" "compliance" 2 "200m" "500m" "384Mi" "768Mi" "myrepo/kyc-service:v1.5.0" "true" "true" \
+  "user-service:user-service:8080,notification-service:notification-service:8080"
+write_deploy "kyc-worker" "compliance" 2 "150m" "400m" "256Mi" "512Mi" "myrepo/kyc-service:v1.5.0" "true" "true" ""
+
+write_deploy "ledger-service" "payments" 2 "300m" "800m" "512Mi" "1Gi" "myrepo/ledger-service:v2.1.0" "true" "true" \
+  "kafka:kafka:9092,audit-service:audit-service:8080"
+write_deploy "transaction-service" "payments" 3 "200m" "600m" "384Mi" "768Mi" "myrepo/transaction-service:v1.8.0" "true" "true" \
+  "payment-service:payment-service:8080,ledger-service:ledger-service:8080,kafka:kafka:9092"
+write_deploy "reconciliation-service" "payments" 1 "500m" "" "1Gi" "" "myrepo/reconciliation-service:v1.0.0" "false" "false" \
+  "ledger-service:ledger-service:8080,transaction-service:transaction-service:8080"
+
+write_deploy "accounts-service" "payments" 2 "200m" "500m" "384Mi" "768Mi" "myrepo/accounts-service:v2.0.0" "true" "true" \
+  "user-service:user-service:8080,ledger-service:ledger-service:8080"
+write_deploy "wallet-service" "payments" 2 "150m" "400m" "256Mi" "512Mi" "myrepo/wallet-service:v1.2.0" "true" "true" \
+  "accounts-service:accounts-service:8080,payment-service:payment-service:8080"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# DEVOPS TOOLING — ops team (some intentionally misconfigured for demo)
+# ══════════════════════════════════════════════════════════════════════════════
+
+# no limits, no probes — will show up as critical in risk analysis
+write_deploy "secret-manager" "ops" 1 "100m" "" "128Mi" "" "myrepo/secret-manager:latest" "false" "false" ""
+write_deploy "registry-proxy" "ops" 1 "200m" "" "256Mi" "" "myrepo/registry-proxy:v1.0.0" "false" "false" ""
+write_deploy "gitops-controller" "ops" 1 "200m" "500m" "256Mi" "512Mi" "myrepo/gitops-controller:v2.0.0" "true" "true" \
+  "kafka:kafka:9092"
+write_deploy "ci-runner" "ops" 2 "500m" "" "1Gi" "" "myrepo/ci-runner:latest" "false" "false" ""
+write_deploy "artifact-store" "ops" 1 "200m" "500m" "512Mi" "1Gi" "myrepo/artifact-store:v1.0.0" "true" "true" ""
+
+# deliberately missing owner_team label for demo
+cat > "$OUT/kubernetes/deploy/legacy-importer.yaml" << YAML
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: frontend
+  name: legacy-importer
   namespace: default
   labels:
-    owner_team: frontend
-    app: frontend
+    app: legacy-importer
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
-      app: frontend
+      app: legacy-importer
   template:
     metadata:
       labels:
-        app: frontend
-        owner_team: frontend
+        app: legacy-importer
     spec:
       containers:
-      - name: frontend
-        image: myrepo/frontend:v4.0.0
+      - name: legacy-importer
+        image: myrepo/legacy-importer:v0.1.0
         resources:
           requests:
             cpu: 100m
             memory: 128Mi
-          limits:
-            cpu: 300m
-            memory: 256Mi
-        ports:
-        - name: http
-          containerPort: 3000
-        env:
-        - name: API_URL
-          value: http://api-gateway
 YAML
 
-# Services
-for svc in api-gateway auth-service user-service product-service inventory-service pricing-service notification-service report-service frontend; do
+# ── Services ──────────────────────────────────────────────────────────────────
+for svc in api-gateway auth-service token-service user-service profile-service \
+  notification-service email-service sms-service billing-service invoice-service \
+  subscription-service analytics-service report-service frontend admin-panel \
+  audit-service payment-service fraud-service fraud-ml-service kyc-service \
+  ledger-service transaction-service reconciliation-service accounts-service \
+  wallet-service secret-manager registry-proxy gitops-controller artifact-store; do
   write_svc "$svc"
 done
 
-# ConfigMaps
-for cm in api-gateway auth-service user-service product-service inventory-service pricing-service notification-service report-service; do
+# ── ConfigMaps ────────────────────────────────────────────────────────────────
+for cm in api-gateway auth-service token-service user-service profile-service \
+  notification-service billing-service invoice-service subscription-service \
+  analytics-service payment-service fraud-service kyc-service ledger-service \
+  transaction-service accounts-service wallet-service audit-service; do
   write_cm "$cm"
 done
 
-# Ingress
+# ── ServiceMonitors ───────────────────────────────────────────────────────────
+for sm in api-gateway auth-service user-service payment-service fraud-service \
+  billing-service analytics-service transaction-service kyc-service ledger-service; do
+  write_sm "$sm"
+done
+
+# ── Ingress ───────────────────────────────────────────────────────────────────
 cat > "$OUT/kubernetes/ing/main.yaml" << YAML
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -228,7 +316,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-  - host: app.local
+  - host: app.example.com
     http:
       paths:
       - path: /
@@ -238,7 +326,7 @@ spec:
             name: frontend
             port:
               number: 80
-  - host: api.local
+  - host: api.example.com
     http:
       paths:
       - path: /
@@ -248,41 +336,42 @@ spec:
             name: api-gateway
             port:
               number: 80
+  - host: admin.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: admin-panel
+            port:
+              number: 80
 YAML
 
-# ServiceMonitors
-for svc in api-gateway auth-service user-service product-service report-service; do
-  cat > "$OUT/kubernetes/servicemonitors/$svc.yaml" << YAML
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: $svc
-  namespace: monitoring
-spec:
-  selector:
-    matchLabels:
-      app: $svc
-  endpoints:
-  - port: http
-    path: /metrics
-YAML
-done
-
-# Helm charts
-write_helm "api-gateway"         "2.1.0" "API Gateway — entry point for all client traffic"
-write_helm "auth-service"        "1.5.2" "Authentication and authorization service"
-write_helm "user-service"        "3.0.1" "User profile and account management"
-write_helm "product-service"     "1.2.0" "Product catalog and metadata"
-write_helm "notification-service" "2.0.0" "Email and push notification delivery"
-write_helm "report-service"      "1.1.0" "Async report generation and export"
-write_helm "redis"               "18.0.0" "In-memory cache and session store"
-write_helm "kafka"               "26.0.0" "Distributed event streaming"
-write_helm "rabbitmq"            "12.0.0" "Message broker for async tasks"
+# ── Helm charts ───────────────────────────────────────────────────────────────
+write_helm "api-gateway"          "2.3.1"  "API Gateway — entry point for all client traffic"
+write_helm "auth-service"         "1.8.0"  "Authentication and token management"
+write_helm "user-service"         "4.1.0"  "User profiles and account management"
+write_helm "payment-service"      "3.2.0"  "Payment processing and orchestration"
+write_helm "fraud-service"        "2.0.0"  "Real-time fraud detection"
+write_helm "billing-service"      "2.1.0"  "Subscription billing and invoicing"
+write_helm "kyc-service"          "1.5.0"  "KYC verification and compliance"
+write_helm "notification-service" "3.0.0"  "Multi-channel notification delivery"
+write_helm "analytics-service"    "1.4.0"  "Event analytics and reporting"
+write_helm "ledger-service"       "2.1.0"  "Financial ledger and accounting"
+write_helm "redis"                "18.0.0" "In-memory cache and session store"
+write_helm "kafka"                "26.0.0" "Distributed event streaming"
+write_helm "rabbitmq"             "12.0.0" "Message broker for async tasks"
+write_helm "postgresql"           "13.0.0" "Primary relational database"
 
 echo ""
 echo "  ✔ Sample data generated in $OUT"
 echo "  ✔ $(find "$OUT/kubernetes/deploy" -name "*.yaml" | wc -l | tr -d ' ') deployments"
-echo "  ✔ $(find "$OUT/kubernetes/svc" -name "*.yaml" | wc -l | tr -d ' ') services"
-echo "  ✔ $(find "$OUT/helm-charts" -name "Chart.yaml" | wc -l | tr -d ' ') helm charts"
+echo "  ✔ $(find "$OUT/kubernetes/svc"    -name "*.yaml" | wc -l | tr -d ' ') services"
+echo "  ✔ $(find "$OUT/helm-charts"       -name "Chart.yaml" | wc -l | tr -d ' ') helm charts"
+echo "  ✔ $(find "$OUT/kubernetes/servicemonitors" -name "*.yaml" | wc -l | tr -d ' ') service monitors"
+echo ""
+echo "  Teams: platform, backend, billing, data, frontend, payments, compliance, ops"
+echo "  Intentional issues: missing limits, :latest tags, no probes, missing owner_team"
 echo ""
 echo "  Next: set PAFIS_BASE=$(realpath "$OUT") in .env.local, then npm run dev"

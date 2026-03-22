@@ -9,6 +9,7 @@ import ServiceHeader from '@/components/ServiceHeader';
 import AnalysisPanel from '@/components/AnalysisPanel';
 import CostPanel from '@/components/CostPanel';
 import Dashboard from '@/components/Dashboard';
+import DataSourceBanner from '@/components/DataSourceBanner';
 
 export default function Home() {
   return (
@@ -80,8 +81,22 @@ function HomeContent() {
             </button>
           )}
           <span className="text-[10px] font-mono text-cyan-400/40 shrink-0 ml-auto">v1.0.0</span>
+          <a href="/health" target="_blank"
+            className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg shrink-0 transition-all"
+            style={{
+              color: '#4ade80',
+              background: 'rgba(34,197,94,0.08)',
+              border: '1px solid rgba(34,197,94,0.2)',
+            }}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+            Health
+          </a>
         </div>
       </header>
+
+      {/* Data source disclaimer */}
+      <DataSourceBanner mode={process.env.NEXT_PUBLIC_DATA_MODE as 'sample' | 'cluster' | 'auto' || 'auto'} />
 
       {/* Main content */}
       <main className="relative z-10 max-w-[1600px] mx-auto px-6 py-6">
