@@ -7,81 +7,94 @@ interface DataSourceBannerProps {
 }
 
 export default function DataSourceBanner({ mode = 'auto' }: DataSourceBannerProps) {
-  const [expanded, setExpanded] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
   if (dismissed) return null;
 
-  // Auto-detect: if PAFIS_BASE contains 'sample' or data count is small it's sample
   const isSample = mode === 'sample';
 
   return (
-    <div className="relative mx-6 mt-3 rounded-lg text-sm overflow-hidden"
+    <div className="relative mx-6 mt-3 rounded-lg text-sm"
       style={{
         background: isSample ? 'rgba(251,191,36,0.06)' : 'rgba(34,211,238,0.06)',
         border: `1px solid ${isSample ? 'rgba(251,191,36,0.2)' : 'rgba(34,211,238,0.15)'}`,
       }}>
-      <div className="flex items-center justify-between px-4 py-2.5">
-        <div className="flex items-center gap-3">
+
+      {/* Header row */}
+      <div className="flex items-center justify-between px-4 pt-3 pb-2">
+        <div className="flex items-center gap-2">
           <span>{isSample ? '🧪' : '📡'}</span>
-          <span className="text-zinc-300">
-            {isSample
-              ? <><span className="text-yellow-400 font-medium">Sample data</span> — pre-generated fintech/SaaS/DevOps manifests for demo purposes</>
-              : <><span className="text-cyan-400 font-medium">Snapshot data</span> — manifests extracted from a Kubernetes cluster at deploy time</>
-            }
+          <span className="font-medium" style={{ color: isSample ? '#fbbf24' : '#22d3ee' }}>
+            {isSample ? 'Demo data' : 'Cluster snapshot'}
           </span>
-          <button
-            onClick={() => setExpanded(e => !e)}
-            className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors underline underline-offset-2"
-          >
-            {expanded ? 'less' : 'how does this work?'}
-          </button>
+          <span className="text-zinc-400">
+            — pre-generated sample manifests. Currently static, but PAFIS can connect to live clusters.
+          </span>
         </div>
         <button onClick={() => setDismissed(true)}
-          className="text-zinc-600 hover:text-zinc-400 transition-colors text-base leading-none ml-4">
+          className="text-zinc-600 hover:text-zinc-400 transition-colors text-base leading-none ml-4 shrink-0">
           ✕
         </button>
       </div>
 
-      {expanded && (
-        <div className="px-4 pb-4 pt-1 space-y-3 border-t border-white/5">
-          <p className="text-zinc-400 leading-relaxed">
-            PAFIS is a <strong className="text-zinc-200">static snapshot tool</strong> — it reads Kubernetes manifest files
-            from disk at startup, parses them into an in-memory graph, and serves everything from memory.
-            It does <strong className="text-zinc-200">not</strong> connect to your cluster at runtime.
-          </p>
+      {/* Always-visible body */}
+      <div className="px-4 pb-4 space-y-3 border-t border-white/5 pt-3">
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="p-3 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-              <div className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-2">Step 1 — Extract</div>
-              <div className="text-xs text-zinc-400 font-mono">npm run fetch:minikube</div>
-              <div className="text-xs text-zinc-500 mt-1">Dumps all K8s manifests from your cluster into <code className="text-zinc-400">./data/</code></div>
-            </div>
-            <div className="p-3 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-              <div className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-2">Step 2 — Build</div>
-              <div className="text-xs text-zinc-400 font-mono">docker build -t pafis .</div>
-              <div className="text-xs text-zinc-500 mt-1">Bakes the manifest snapshot into the Docker image</div>
-            </div>
-            <div className="p-3 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-              <div className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-2">Step 3 — Run</div>
-              <div className="text-xs text-zinc-400 font-mono">docker run pafis</div>
-              <div className="text-xs text-zinc-500 mt-1">Serves the graph anywhere — no cluster access needed</div>
+        {/* Two column layout */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+          {/* How it works */}
+          <div className="space-y-2">
+            <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">How it works</p>
+            <p className="text-zinc-400 text-sm leading-relaxed">
+              PAFIS reads Kubernetes manifest files from disk, parses them into a dependency graph,
+              and serves everything from memory.In static mode it works from a snapshot. Connected to a live cluster it would
+              refresh automatically as the infrastructure changes.
+            </p>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500 pt-1">
+              <span>✅ Works offline and air-gapped</span>
+              <span>✅ No cluster permissions at runtime</span>
+              <span>✅ Usable in CI/CD pre-deploy checks</span>
+              <span>🔄 Live mode possible via kubectl watch or K8s operator</span>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-4 text-xs text-zinc-500">
-            <span>✅ Works offline and air-gapped</span>
-            <span>✅ No RBAC or cluster permissions at runtime</span>
-            <span>✅ Can run in CI/CD to analyse manifests pre-deploy</span>
-            <span>⚠️ Data is a point-in-time snapshot — re-fetch to update</span>
+          {/* Cost estimation disclaimer */}
+          <div className="space-y-2">
+            <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">Cost estimation methodology</p>
+            <p className="text-zinc-400 text-sm leading-relaxed">
+              Costs are estimated using <strong className="text-zinc-300">approximate AWS EKS on-demand pricing</strong> —
+              $0.031/core-hour and $0.004/GiB-hour × 730 hours/month.
+              These are ballpark figures based on <code className="text-zinc-300 bg-zinc-800 px-1 rounded">t3.medium</code> nodes
+              in us-east-1 and are useful for <strong className="text-zinc-300">relative comparisons</strong> between services,
+              not precise billing.
+            </p>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500 pt-1">
+              <span>⚠️ Currently does not include storage or load balancer costs</span>
+              <span>⚠️ Actual cost depends on instance type, region and pricing tier</span>
+              <span>📊 Can be connected to Prometheus for real usage-based cost calculations</span>
+            </div>
           </div>
 
-          <p className="text-xs text-zinc-600">
-            For live cluster integration, PAFIS could be extended with a <code>kubectl watch</code> mode or a Kubernetes
-            operator that auto-refreshes the graph on manifest changes. This is on the roadmap.
-          </p>
         </div>
-      )}
+
+        {/* Steps row */}
+        <div className="grid grid-cols-3 gap-2 pt-1">
+          {[
+            { step: '1', title: 'Extract', cmd: 'npm run fetch:minikube', desc: 'Pull manifests from any K8s cluster' },
+            { step: '2', title: 'Build',   cmd: 'docker build -t pafis .', desc: 'Snapshot baked into the Docker image' },
+            { step: '3', title: 'Run',     cmd: 'docker run pafis',        desc: 'Serves anywhere, no cluster needed' },
+          ].map(({ step, title, cmd, desc }) => (
+            <div key={step} className="p-2.5 rounded-lg"
+              style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 mb-1">Step {step} — {title}</div>
+              <div className="text-xs text-zinc-300 font-mono mb-0.5">{cmd}</div>
+              <div className="text-xs text-zinc-600">{desc}</div>
+            </div>
+          ))}
+        </div>
+
+      </div>
     </div>
   );
 }
