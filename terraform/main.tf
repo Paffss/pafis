@@ -87,10 +87,10 @@ resource "aws_apprunner_service" "pafis" {
       image_configuration {
         port = "3000"
         runtime_environment_variables = {
-          NODE_ENV                = "production"
-          PAFIS_BASE              = "/app/data"
-          AI_PROVIDER             = "anthropic"
-          NEXT_PUBLIC_DATA_MODE   = "sample"
+          NODE_ENV                     = "production"
+          PAFIS_BASE                   = "/app/data"
+          AI_PROVIDER                  = "anthropic"
+          NEXT_PUBLIC_DATA_MODE        = "sample"
           NODE_TLS_REJECT_UNAUTHORIZED = "0"
         }
         runtime_environment_secrets = {
@@ -98,6 +98,7 @@ resource "aws_apprunner_service" "pafis" {
           DEMO_USERNAME     = aws_secretsmanager_secret_version.demo_username.arn
           DEMO_PASSWORD     = aws_secretsmanager_secret_version.demo_password.arn
           SESSION_SECRET    = aws_secretsmanager_secret_version.session_secret.arn
+          PROMETHEUS_URL    = aws_secretsmanager_secret_version.grafana_cloud_url.arn
         }
       }
     }
@@ -168,7 +169,18 @@ resource "aws_secretsmanager_secret_version" "session_secret" {
   secret_string = var.session_secret
 }
 
-# IAM policy for App Runner to read secrets
+resource "aws_secretsmanager_secret" "grafana_cloud_url" {
+  name                    = "pafis/grafana-cloud-url"
+  recovery_window_in_days = 0
+}
+
+resource "aws_secretsmanager_secret_version" "grafana_cloud_url" {
+  secret_id     = aws_secretsmanager_secret.grafana_cloud_url.id
+  secret_string = var.grafana_cloud_url
+}
+
+# ── IAM Role for App Runner instance ─────────────────────────────────────────
+
 resource "aws_iam_role" "apprunner_instance" {
   name = "pafis-apprunner-instance"
 
@@ -196,6 +208,7 @@ resource "aws_iam_role_policy" "apprunner_secrets" {
         aws_secretsmanager_secret.demo_username.arn,
         aws_secretsmanager_secret.demo_password.arn,
         aws_secretsmanager_secret.session_secret.arn,
+        aws_secretsmanager_secret.grafana_cloud_url.arn,
       ]
     }]
   })
@@ -217,9 +230,6 @@ resource "aws_route53_record" "pafis" {
   records = [aws_apprunner_service.pafis.service_url]
 }
 
-# DNS validation records for App Runner custom domain SSL
-# Note: requires two-phase apply — first apply creates the association,
-# second apply creates the validation records once they're known
 resource "aws_route53_record" "pafis_validation" {
   for_each = {
     for r in tolist(aws_apprunner_custom_domain_association.pafis.certificate_validation_records) :

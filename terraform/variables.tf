@@ -28,3 +28,9 @@ variable "session_secret" {
   type        = string
   sensitive   = true
 }
+
+variable "grafana_cloud_url" {
+  description = "Grafana Cloud Prometheus URL with embedded basic auth credentials"
+  type        = string
+  sensitive   = true
+}

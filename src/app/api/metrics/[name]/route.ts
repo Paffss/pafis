@@ -118,7 +118,12 @@ export async function GET(
     return NextResponse.json({ error: 'Deployment not found' }, { status: 404 });
   }
 
-  const matcher = `container="${name}", image!=""`;
+  // minikube cAdvisor stores metrics by pod name (not container name)
+  // so we match by pod name prefix: pod=~"api-gateway-.*"
+  // also try container label as fallback for standard setups
+  const podMatcher = `pod=~"${name}-.*"`;
+  const containerMatcher = `container="${name}", image!=""`;
+  const matcher = `${podMatcher}`;
 
   const [avgCpuSamples, avgMemSamples, p95CpuSamples, p95MemSamples, replicaSamples] = await Promise.all([
     queryPrometheusVector(
