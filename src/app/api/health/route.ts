@@ -50,12 +50,16 @@ async function checkPrometheus(): Promise<{ reachable: boolean; latencyMs: numbe
     console.log('[pafis:health] hasCredentials:', !!username && !!password);
     console.log('[pafis:health] passwordPrefix:', password.substring(0, 8));
 
-    const res = await fetch(`${cleanBase}/-/healthy`, {
+    const res = await fetch(`${cleanBase}/api/v1/query?query=1`, {
       headers,
       signal: AbortSignal.timeout(3000),
     });
+    console.log('[pafis:health] status:', res.status, res.statusText);
+    const body = await res.text();
+    console.log('[pafis:health] responseBody:', body.substring(0, 200));
     return { reachable: res.ok, latencyMs: Date.now() - start };
-  } catch {
+  } catch (e) {
+    console.log('[pafis:health] fetchError:', String(e));
     return { reachable: false, latencyMs: null };
   }
 }
