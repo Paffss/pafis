@@ -44,8 +44,25 @@ interface InternalNamespaceMetricsRow extends NamespaceMetricsRow {
 
 async function queryPrometheusVector(query: string): Promise<Array<{ metric: Record<string, string>; value: number }>> {
   try {
-    const url = `${PROMETHEUS_URL}/api/v1/query?query=${encodeURIComponent(query)}`;
+    // Parse credentials from URL if present (e.g. https://user:pass@host/path)
+    const parsedUrl = new URL(PROMETHEUS_URL);
+    const username = parsedUrl.username;
+    const password = parsedUrl.password;
+
+    // Build clean URL without credentials
+    parsedUrl.username = '';
+    parsedUrl.password = '';
+    const cleanBase = parsedUrl.toString().replace(/\/$/, '');
+
+    const url = `${cleanBase}/api/v1/query?query=${encodeURIComponent(query)}`;
+
+    const headers: Record<string, string> = {};
+    if (username && password) {
+      headers['Authorization'] = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
+    }
+
     const res = await fetch(url, {
+      headers,
       signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) return [];

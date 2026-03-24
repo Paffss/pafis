@@ -30,7 +30,7 @@ const MOCK_ENTERPRISE_TEAMS = [
   { team: 'compliance', users: 4,  inputTokens: 1_890_000, outputTokens: 560_000,  topUser: 'petra.v',   trend: '+21%' },
   { team: 'data',       users: 5,  inputTokens: 1_560_000, outputTokens: 480_000,  topUser: 'ivan.m',    trend: '+8%'  },
   { team: 'frontend',   users: 9,  inputTokens: 980_000,  outputTokens: 310_000,  topUser: 'sara.t',    trend: '-1%'  },
-  { team: 'ops',        users: 3,  inputTokens: 670_000,  outputTokens: 210_000,  topUser: 'dimitar.d', trend: '+4%'  },
+  { team: 'ops',        users: 3,  inputTokens: 670_000,  outputTokens: 210_000,  topUser: 'pavel.a', trend: '+4%'  },
 ];
 
 const INPUT_COST_PER_M  = 3.00;

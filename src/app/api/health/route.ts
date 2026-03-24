@@ -25,7 +25,20 @@ function checkDataPaths() {
 async function checkPrometheus(): Promise<{ reachable: boolean; latencyMs: number | null }> {
   const start = Date.now();
   try {
-    const res = await fetch(`${PROMETHEUS_URL}/-/healthy`, {
+    const parsedUrl = new URL(PROMETHEUS_URL);
+    const username = parsedUrl.username;
+    const password = parsedUrl.password;
+    parsedUrl.username = '';
+    parsedUrl.password = '';
+    const cleanBase = parsedUrl.toString().replace(/\/$/, '');
+
+    const headers: Record<string, string> = {};
+    if (username && password) {
+      headers['Authorization'] = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
+    }
+
+    const res = await fetch(`${cleanBase}/-/healthy`, {
+      headers,
       signal: AbortSignal.timeout(3000),
     });
     return { reachable: res.ok, latencyMs: Date.now() - start };
