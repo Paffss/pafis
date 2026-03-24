@@ -5,6 +5,7 @@ import RiskSummary from './RiskSummary';
 import UnusedResources from './UnusedResources';
 import TeamPanel from './TeamPanel';
 import TopCostServices from './TopCostServices';
+import AiCostsDashboard from './AiCostsDashboard';
 
 interface Stats {
   totalNodes: number;
@@ -33,7 +34,7 @@ interface DashboardProps {
 
 export default function Dashboard({ onSelectService }: DashboardProps) {
   const [stats, setStats] = useState<Stats | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'risks' | 'unused'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'risks' | 'unused' | 'ai-costs'>('overview');
   const [selectedTeam, setSelectedTeam] = useState<{ name: string; color: string } | null>(null);
 
   useEffect(() => {
@@ -100,7 +101,7 @@ export default function Dashboard({ onSelectService }: DashboardProps) {
 
         {/* Graph stats row */}
         <div className="grid grid-cols-4 gap-3 mt-5">
-          <MiniStat label="Graph Objects" value={stats.totalNodes} />
+          <MiniStat label="Graph Nodes" value={stats.totalNodes} />
           <MiniStat label="Graph Edges" value={stats.edges} />
           <MiniStat label="ConfigMaps" value={stats.configmaps} />
           <MiniStat label="Secrets" value={stats.secrets} />
@@ -109,7 +110,7 @@ export default function Dashboard({ onSelectService }: DashboardProps) {
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-white/5">
-        {(['overview', 'risks', 'unused'] as const).map(tab => (
+        {(['overview', 'risks', 'unused', 'ai-costs'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -119,7 +120,7 @@ export default function Dashboard({ onSelectService }: DashboardProps) {
             {tab === 'risks' && totalRisks > 0 && (
               <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-400" />
             )}
-            {tab}
+            {tab === 'ai-costs' ? 'AI & Costs' : tab}
             {activeTab === tab && (
               <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-400" />
             )}
@@ -176,6 +177,8 @@ export default function Dashboard({ onSelectService }: DashboardProps) {
         </div>
       ) : activeTab === 'risks' ? (
         <RiskSummary onSelectService={name => onSelectService?.(name)} />
+      ) : activeTab === 'ai-costs' ? (
+        <AiCostsDashboard onSelectService={name => onSelectService?.(name)} />
       ) : (
         <UnusedResources />
       )}

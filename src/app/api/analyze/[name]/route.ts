@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { AI_PROVIDER, ANTHROPIC_API_KEY } from '@/lib/config';
 import { streamOllama } from '@/lib/ai/ollama';
 import { findNodeByName, getServiceSubgraph, getServiceFamily } from '@/lib/graph/query';
+import { recordUsage } from '@/lib/ai/usage-tracker';
 
 export const dynamic = 'force-dynamic';
 
@@ -120,7 +121,7 @@ ${ctx}`,
   ];
 }
 
-function streamAnthropic(prompt: string): ReadableStream<Uint8Array> {
+function streamAnthropic(prompt: string, _maxTokens = 800): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
 
   return new ReadableStream({
@@ -140,6 +141,14 @@ function streamAnthropic(prompt: string): ReadableStream<Uint8Array> {
             fullResponse += text;
             controller.enqueue(encoder.encode(text));
           }
+        }
+
+        // Capture token usage from the final message
+        const finalMessage = await messageStream.finalMessage();
+        if (finalMessage.usage) {
+          controller.enqueue(encoder.encode(
+            `\n<!--tokens:${finalMessage.usage.input_tokens}:${finalMessage.usage.output_tokens}-->`
+          ));
         }
 
         controller.close();
@@ -206,6 +215,14 @@ export async function POST(
           }
         }
         analysisCache.set(name, fullResponse);
+
+        // Extract and record token usage from hidden comments
+        const tokenMatches = [...fullResponse.matchAll(/<!--tokens:(\d+):(\d+)-->/g)];
+        if (tokenMatches.length > 0) {
+          const totalInput  = tokenMatches.reduce((s, m) => s + parseInt(m[1]), 0);
+          const totalOutput = tokenMatches.reduce((s, m) => s + parseInt(m[2]), 0);
+          recordUsage(name, totalInput, totalOutput);
+        }
       } catch (error) {
         const errMsg = error instanceof Error ? error.message : 'Unknown error';
         controller.enqueue(encoder.encode(`\n\n**Error:** ${errMsg}`));
