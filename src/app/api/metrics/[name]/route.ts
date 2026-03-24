@@ -45,11 +45,14 @@ interface InternalNamespaceMetricsRow extends NamespaceMetricsRow {
 async function queryPrometheusVector(query: string): Promise<Array<{ metric: Record<string, string>; value: number }>> {
   try {
     // Parse credentials from URL if present (e.g. https://user:pass@host/path)
+    // Use a sanitised copy so the original string with credentials is never
+    // passed to fetch() — Node 18+ undici throws on credentialed URLs.
     const parsedUrl = new URL(PROMETHEUS_URL);
-    const username = parsedUrl.username;
-    const password = parsedUrl.password;
+    const username = decodeURIComponent(parsedUrl.username);
+    const password = decodeURIComponent(parsedUrl.password);
 
-    // Build clean URL without credentials
+    // Strip credentials BEFORE calling .toString() — undici inspects the
+    // URL object itself, not just the string passed to fetch().
     parsedUrl.username = '';
     parsedUrl.password = '';
     const cleanBase = parsedUrl.toString().replace(/\/$/, '');

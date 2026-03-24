@@ -25,9 +25,15 @@ function checkDataPaths() {
 async function checkPrometheus(): Promise<{ reachable: boolean; latencyMs: number | null }> {
   const start = Date.now();
   try {
+    // Parse credentials from URL if present (e.g. https://user:pass@host/path)
+    // Use a sanitised copy so the original string with credentials is never
+    // passed to fetch() — Node 18+ undici throws on credentialed URLs.
     const parsedUrl = new URL(PROMETHEUS_URL);
-    const username = parsedUrl.username;
-    const password = parsedUrl.password;
+    const username = decodeURIComponent(parsedUrl.username);
+    const password = decodeURIComponent(parsedUrl.password);
+
+    // Strip credentials BEFORE calling .toString() — undici inspects the
+    // URL object itself, not just the string passed to fetch().
     parsedUrl.username = '';
     parsedUrl.password = '';
     const cleanBase = parsedUrl.toString().replace(/\/$/, '');
@@ -121,7 +127,7 @@ export async function GET() {
     },
     prometheus: {
       status: prometheus.reachable ? 'ok' : 'unavailable',
-      url: PROMETHEUS_URL,
+      url: (() => { try { const u = new URL(PROMETHEUS_URL); u.username = ''; u.password = ''; return u.toString(); } catch { return '(invalid)'; } })(),
       latencyMs: prometheus.latencyMs,
     },
     ai: {
