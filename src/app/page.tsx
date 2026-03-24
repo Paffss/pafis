@@ -35,7 +35,7 @@ function HomeContent() {
     }
 
     const query = nextParams.toString();
-    router.replace(query ? `${pathname}?${query}` : pathname);
+    router.push(query ? `${pathname}?${query}` : pathname);
   };
 
   return (
@@ -101,7 +101,7 @@ function HomeContent() {
       {/* Main content */}
       <main className="relative z-10 max-w-[1600px] mx-auto px-6 py-6">
         {selectedService ? (
-          <ServiceView name={selectedService} />
+          <ServiceView name={selectedService} onBack={() => setSelectedService(null)} />
         ) : (
           <Dashboard onSelectService={name => setSelectedService(name)} />
         )}
@@ -110,9 +110,17 @@ function HomeContent() {
   );
 }
 
-function ServiceView({ name }: { name: string }) {
+function ServiceView({ name, onBack }: { name: string; onBack: () => void }) {
   return (
     <div className="space-y-4">
+      {/* Back button */}
+      <button
+        onClick={onBack}
+        className="flex items-center gap-2 text-sm text-zinc-400 hover:text-zinc-100 transition-colors group"
+      >
+        <span className="group-hover:-translate-x-0.5 transition-transform">←</span>
+        <span>Back to Dashboard</span>
+      </button>
       <ServiceHeader name={name} />
       <ServiceDiagram name={name} />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
