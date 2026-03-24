@@ -44,18 +44,20 @@ interface InternalNamespaceMetricsRow extends NamespaceMetricsRow {
 
 async function queryPrometheusVector(query: string): Promise<Array<{ metric: Record<string, string>; value: number }>> {
   try {
-    // Parse credentials from URL if present (e.g. https://user:pass@host/path)
-    // Use a sanitised copy so the original string with credentials is never
-    // passed to fetch() — Node 18+ undici throws on credentialed URLs.
-    const parsedUrl = new URL(PROMETHEUS_URL);
-    const username = decodeURIComponent(parsedUrl.username);
-    const password = decodeURIComponent(parsedUrl.password);
-
-    // Strip credentials BEFORE calling .toString() — undici inspects the
-    // URL object itself, not just the string passed to fetch().
-    parsedUrl.username = '';
-    parsedUrl.password = '';
-    const cleanBase = parsedUrl.toString().replace(/\/$/, '');
+    // Extract credentials from the raw URL string — avoids the URL constructor
+    // percent-encoding the token, which would corrupt the Authorization header.
+    // Node 18+ undici also throws if a credentialed URL is passed to fetch().
+    const credMatch = PROMETHEUS_URL.match(/^(https?:\/\/)([^:]+):([^@]+)@(.+)$/);
+    let cleanBase: string;
+    let username = '';
+    let password = '';
+    if (credMatch) {
+      username  = credMatch[2];
+      password  = credMatch[3];
+      cleanBase = (credMatch[1] + credMatch[4]).replace(/\/$/, '');
+    } else {
+      cleanBase = PROMETHEUS_URL.replace(/\/$/, '');
+    }
 
     const url = `${cleanBase}/api/v1/query?query=${encodeURIComponent(query)}`;
 
@@ -63,6 +65,11 @@ async function queryPrometheusVector(query: string): Promise<Array<{ metric: Rec
     if (username && password) {
       headers['Authorization'] = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
     }
+
+    // DEBUG — remove after confirming auth works
+    console.log('[pafis:metrics] cleanBase:', cleanBase);
+    console.log('[pafis:metrics] hasCredentials:', !!username && !!password);
+    console.log('[pafis:metrics] passwordPrefix:', password.substring(0, 8));
 
     const res = await fetch(url, {
       headers,
