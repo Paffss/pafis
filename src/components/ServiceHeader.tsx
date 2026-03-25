@@ -20,6 +20,7 @@ interface ManifestData {
     hasLivenessProbe?: boolean;
     hasReadinessProbe?: boolean;
     ports?: { name: string; port: number }[];
+    environment?: string;
   };
   family: Array<{
     name: string;
@@ -61,6 +62,7 @@ export default function ServiceHeader({ name }: ServiceHeaderProps) {
             ) : (
               <span className="missing-team">no owner team</span>
             )}
+            {m.environment && <EnvBadge env={m.environment} />}
           </div>
           <div className="flex items-center gap-2">
             {m.framework && <span className="text-xs px-2 py-0.5 bg-zinc-800 rounded text-zinc-500">{m.framework}</span>}
@@ -111,6 +113,27 @@ export default function ServiceHeader({ name }: ServiceHeaderProps) {
         <ManifestViewer name={name} onClose={() => setShowYaml(false)} />
       )}
     </>
+  );
+}
+
+const ENV_STYLES: Record<string, { bg: string; text: string; dot: string }> = {
+  production: { bg: 'rgba(239,68,68,0.15)',  text: '#fca5a5', dot: '#ef4444' },
+  staging:    { bg: 'rgba(234,179,8,0.15)',  text: '#fde047', dot: '#eab308' },
+  qa:         { bg: 'rgba(249,115,22,0.15)', text: '#fdba74', dot: '#f97316' },
+  dev:        { bg: 'rgba(34,197,94,0.15)',  text: '#86efac', dot: '#22c55e' },
+  unknown:    { bg: 'rgba(113,113,122,0.15)',text: '#a1a1aa', dot: '#71717a' },
+};
+
+function EnvBadge({ env }: { env: string }) {
+  const s = ENV_STYLES[env] || ENV_STYLES.unknown;
+  return (
+    <span
+      className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium"
+      style={{ background: s.bg, color: s.text, border: `1px solid ${s.dot}40` }}
+    >
+      <span className="w-1.5 h-1.5 rounded-full" style={{ background: s.dot }} />
+      {env}
+    </span>
   );
 }
 

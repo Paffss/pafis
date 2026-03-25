@@ -331,7 +331,8 @@ export function getGraphStats() {
     latestTag: 0,
     noLivenessProbe: 0,
     noOwnerTeam: 0,
-    environments: 0, // TODO(environments): parse from ingress hostnames (prod/staging/qa) and power environment switcher
+    environments: 0,
+    environmentDistribution: {} as Record<string, number>,
   };
 
   for (const node of graph.nodes.values()) {
@@ -351,6 +352,9 @@ export function getGraphStats() {
         if (!node.metadata.hasLivenessProbe) stats.noLivenessProbe++;
         if (node.metadata.image?.endsWith(':latest')) stats.latestTag++;
         if (!node.metadata.hasLivenessProbe) stats.noLivenessProbe++;
+        // Environment distribution
+        const env = node.metadata.environment || 'unknown';
+        stats.environmentDistribution[env] = (stats.environmentDistribution[env] || 0) + 1;
         break;
       case 'service': stats.services++; break;
       case 'ingress':
@@ -367,26 +371,8 @@ export function getGraphStats() {
   // Count network policy edges
   stats.networkPolicies = graph.edges.filter(e => e.type === 'network-allows').length;
 
-  // Count environments from ingress nodes
-  for (const node of graph.nodes.values()) {
-    if (node.type === 'ingress' && node.metadata.hosts) {
-      // We count environments from ingress parser
-    }
-  }
-
-  // Get env count from ingress data
-  try {
-    const ingresses = parseIngresses();
-    const allEnvs = new Set<string>();
-    for (const data of ingresses.values()) {
-      for (const env of data.environments) {
-        allEnvs.add(env);
-      }
-    }
-    stats.environments = allEnvs.size;
-  } catch {
-    stats.environments = 0;
-  }
+  // Derive environment count from deployment metadata
+  stats.environments = Object.keys(stats.environmentDistribution).filter(e => e !== 'unknown').length;
 
   return stats;
 }

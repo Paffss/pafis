@@ -36,6 +36,7 @@ export interface GraphNode {
     maintainers?: string[];
     dependencies?: string[];
     configMapKeys?: Record<string, string[]>; // configmap name -> keys used
+    environment?: 'production' | 'staging' | 'qa' | 'dev' | 'unknown';
   };
   rawYaml?: string;
 }

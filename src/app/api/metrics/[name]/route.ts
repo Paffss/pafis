@@ -66,10 +66,6 @@ async function queryPrometheusVector(query: string): Promise<Array<{ metric: Rec
       headers['Authorization'] = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
     }
 
-    // DEBUG — remove after confirming auth works
-    console.log('[pafis:metrics] cleanBase:', cleanBase);
-    console.log('[pafis:metrics] hasCredentials:', !!username && !!password);
-    console.log('[pafis:metrics] passwordPrefix:', password.substring(0, 8));
 
     const res = await fetch(url, {
       headers,

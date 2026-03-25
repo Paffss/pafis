@@ -46,6 +46,42 @@ interface K8sDeployment {
   };
 }
 
+// ── Environment detection ─────────────────────────────────────────────────────
+type Environment = 'production' | 'staging' | 'qa' | 'dev' | 'unknown';
+
+export function detectEnvironment(
+  namespace: string | undefined,
+  labels: Record<string, string>,
+  envVars: Array<{ name?: string; value?: string }>,
+): Environment {
+  // 1. Explicit label: environment or env
+  const labelVal = (labels['environment'] || labels['env'] || '').toLowerCase();
+  if (labelVal.includes('prod'))    return 'production';
+  if (labelVal.includes('stag'))    return 'staging';
+  if (labelVal.includes('qa'))      return 'qa';
+  if (labelVal.includes('dev'))     return 'dev';
+
+  // 2. Env var: ENVIRONMENT or APP_ENV
+  for (const e of envVars) {
+    if (e.name === 'ENVIRONMENT' || e.name === 'APP_ENV') {
+      const v = (e.value || '').toLowerCase();
+      if (v.includes('prod'))  return 'production';
+      if (v.includes('stag'))  return 'staging';
+      if (v.includes('qa'))    return 'qa';
+      if (v.includes('dev'))   return 'dev';
+    }
+  }
+
+  // 3. Namespace name heuristic
+  const ns = (namespace || '').toLowerCase();
+  if (ns.includes('prod'))  return 'production';
+  if (ns.includes('stag'))  return 'staging';
+  if (ns.includes('qa'))    return 'qa';
+  if (ns.includes('dev'))   return 'dev';
+
+  return 'unknown';
+}
+
 export interface ServiceDep {
   name: string;
   host: string;
@@ -141,6 +177,11 @@ export function parseDeployments(): DeploymentData[] {
           hasLivenessProbe: !!container?.livenessProbe,
           hasReadinessProbe: !!container?.readinessProbe,
           configMapKeys: Object.fromEntries(configMapRefs),
+          environment: detectEnvironment(
+            doc.metadata.namespace,
+            labels,
+            container?.env || [],
+          ),
         },
         rawYaml: content,
       };

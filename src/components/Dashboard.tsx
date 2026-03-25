@@ -26,6 +26,7 @@ interface Stats {
   noLivenessProbe: number;
   noOwnerTeam: number;
   environments: number;
+  environmentDistribution: Record<string, number>;
 }
 
 interface DashboardProps {
@@ -36,6 +37,7 @@ export default function Dashboard({ onSelectService }: DashboardProps) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'risks' | 'unused' | 'ai-costs'>('overview');
   const [selectedTeam, setSelectedTeam] = useState<{ name: string; color: string } | null>(null);
+  const [selectedEnv, setSelectedEnv] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/stats')
@@ -142,6 +144,13 @@ export default function Dashboard({ onSelectService }: DashboardProps) {
             </div>
           </div>
 
+          {/* Environment distribution */}
+          <EnvironmentPanel
+            distribution={stats.environmentDistribution}
+            selected={selectedEnv}
+            onSelect={env => setSelectedEnv(prev => prev === env ? null : env)}
+          />
+
           {/* Bottom row — team donut + top costs */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
             {/* Team distribution — 1/3 width, team services expand below donut */}
@@ -208,6 +217,60 @@ function RiskCard({ label, value, total, severity }: {
       <div className="text-3xl font-black" style={{ color }}>{value}</div>
       <div className="text-xs text-zinc-400 mt-1 leading-tight">{label}</div>
       <div className="text-xs mt-1" style={{ color: `${color}80` }}>{pct}% of services</div>
+    </div>
+  );
+}
+
+const ENV_CONFIG: Record<string, { label: string; bg: string; text: string; dot: string; border: string }> = {
+  production: { label: 'Production', bg: 'rgba(239,68,68,0.1)',  text: '#fca5a5', dot: '#ef4444', border: 'rgba(239,68,68,0.25)' },
+  staging:    { label: 'Staging',    bg: 'rgba(234,179,8,0.1)',  text: '#fde047', dot: '#eab308', border: 'rgba(234,179,8,0.25)' },
+  qa:         { label: 'QA',         bg: 'rgba(249,115,22,0.1)', text: '#fdba74', dot: '#f97316', border: 'rgba(249,115,22,0.25)' },
+  dev:        { label: 'Dev',        bg: 'rgba(34,197,94,0.1)',  text: '#86efac', dot: '#22c55e', border: 'rgba(34,197,94,0.25)' },
+  unknown:    { label: 'Unknown',    bg: 'rgba(113,113,122,0.1)',text: '#a1a1aa', dot: '#71717a', border: 'rgba(113,113,122,0.2)' },
+};
+const ENV_ORDER = ['production', 'staging', 'qa', 'dev', 'unknown'];
+
+function EnvironmentPanel({ distribution, selected, onSelect }: {
+  distribution: Record<string, number>;
+  selected: string | null;
+  onSelect: (env: string) => void;
+}) {
+  const entries = ENV_ORDER.filter(e => distribution[e] > 0);
+  if (entries.length === 0) return null;
+  const total = Object.values(distribution).reduce((a, b) => a + b, 0);
+
+  return (
+    <div className="glass-panel p-5">
+      <h3 className="text-sm font-bold uppercase tracking-widest text-zinc-500 mb-4">
+        Environments ({entries.length} detected)
+      </h3>
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">
+        {entries.map(env => {
+          const cfg = ENV_CONFIG[env] || ENV_CONFIG.unknown;
+          const count = distribution[env] || 0;
+          const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+          const isSelected = selected === env;
+          return (
+            <button
+              key={env}
+              onClick={() => onSelect(env)}
+              className="text-center p-4 rounded-lg transition-all"
+              style={{
+                background: isSelected ? cfg.bg : 'rgba(255,255,255,0.02)',
+                border: `1px solid ${isSelected ? cfg.border : 'rgba(255,255,255,0.06)'}`,
+                transform: isSelected ? 'scale(1.02)' : 'scale(1)',
+              }}
+            >
+              <div className="flex items-center justify-center gap-1.5 mb-2">
+                <span className="w-2 h-2 rounded-full" style={{ background: cfg.dot }} />
+                <span className="text-xs font-medium" style={{ color: cfg.text }}>{cfg.label}</span>
+              </div>
+              <div className="text-3xl font-black text-zinc-100">{count}</div>
+              <div className="text-xs text-zinc-500 mt-1">{pct}% of services</div>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
