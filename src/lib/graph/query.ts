@@ -137,32 +137,101 @@ export function getServiceFamily(name: string): GraphNode[] {
   return result;
 }
 
-let fuseInstance: Fuse<{ name: string; type: string; ownerTeam: string; id: string }> | null = null;
+export interface SearchItem {
+  name: string;
+  type: string;
+  ownerTeam: string;
+  environment: string;
+  id: string;
+  noLimits: boolean;
+  latestTag: boolean;
+  noLivenessProbe: boolean;
+  singleReplica: boolean;
+}
 
-export function searchServices(query: string, limit = 20) {
-  if (!fuseInstance) {
-    const graph = getGraph();
-    const items: { name: string; type: string; ownerTeam: string; id: string }[] = [];
+let fuseInstance: Fuse<SearchItem> | null = null;
+let allItems: SearchItem[] = [];
 
-    for (const node of graph.nodes.values()) {
-      if (['deployment', 'helm-chart'].includes(node.type)) {
-        items.push({
-          name: node.name,
-          type: node.type,
-          ownerTeam: node.metadata.ownerTeam || '',
-          id: node.id,
-        });
-      }
+function buildIndex() {
+  if (fuseInstance) return;
+  const graph = getGraph();
+  allItems = [];
+
+  for (const node of graph.nodes.values()) {
+    if (['deployment', 'helm-chart'].includes(node.type)) {
+      allItems.push({
+        name:            node.name,
+        type:            node.type,
+        ownerTeam:       node.metadata.ownerTeam || '',
+        environment:     node.metadata.environment || 'unknown',
+        id:              node.id,
+        noLimits:        !node.metadata.cpuLimit && !node.metadata.memoryLimit,
+        latestTag:       node.metadata.image?.endsWith(':latest') ?? false,
+        noLivenessProbe: !node.metadata.hasLivenessProbe,
+        singleReplica:   (node.metadata.replicas ?? 1) === 1,
+      });
     }
-
-    fuseInstance = new Fuse(items, {
-      keys: ['name', 'ownerTeam'],
-      threshold: 0.3,
-      includeScore: true,
-    });
   }
 
-  return fuseInstance.search(query, { limit }).map(r => r.item);
+  fuseInstance = new Fuse(allItems, {
+    keys: ['name', 'ownerTeam', 'environment'],
+    threshold: 0.3,
+    includeScore: true,
+  });
+}
+
+// Parse filter tokens from query string
+// Supports: team:payments env:production risk:latest risk:nolimits risk:noprobe
+function parseQuery(query: string): { text: string; filters: Record<string, string> } {
+  const filters: Record<string, string> = {};
+  const tokens = query.split(/\s+/);
+  const textTokens: string[] = [];
+
+  for (const token of tokens) {
+    const colonIdx = token.indexOf(':');
+    if (colonIdx > 0) {
+      const key = token.slice(0, colonIdx).toLowerCase();
+      const val = token.slice(colonIdx + 1).toLowerCase();
+      if (['team', 'env', 'environment', 'risk'].includes(key)) {
+        filters[key] = val;
+        continue;
+      }
+    }
+    textTokens.push(token);
+  }
+
+  return { text: textTokens.join(' ').trim(), filters };
+}
+
+export function searchServices(query: string, limit = 20): SearchItem[] {
+  buildIndex();
+  const { text, filters } = parseQuery(query);
+
+  let results: SearchItem[] = text
+    ? fuseInstance!.search(text, { limit: limit * 2 }).map(r => r.item)
+    : [...allItems];
+
+  // Apply token filters
+  if (filters.team)        results = results.filter(r => r.ownerTeam.toLowerCase().includes(filters.team));
+  if (filters.env)         results = results.filter(r => r.environment.toLowerCase().includes(filters.env));
+  if (filters.environment) results = results.filter(r => r.environment.toLowerCase().includes(filters.environment));
+  if (filters.risk) {
+    const risk = filters.risk;
+    if (risk === 'latest' || risk === 'latesttag') results = results.filter(r => r.latestTag);
+    else if (risk === 'nolimits' || risk === 'limits') results = results.filter(r => r.noLimits);
+    else if (risk === 'noprobe' || risk === 'probe' || risk === 'noliveness') results = results.filter(r => r.noLivenessProbe);
+    else if (risk === 'single' || risk === 'singlereplica') results = results.filter(r => r.singleReplica);
+  }
+
+  return results.slice(0, limit);
+}
+
+// Get all available teams and environments for autocomplete
+export function getFilterOptions(): { teams: string[]; environments: string[] } {
+  buildIndex();
+  const teams = [...new Set(allItems.map(i => i.ownerTeam).filter(Boolean))].sort();
+  const envs  = [...new Set(allItems.map(i => i.environment).filter(e => e !== 'unknown'))].sort();
+  return { teams, environments: envs };
 }
 
 export function getAllDeployments() {
