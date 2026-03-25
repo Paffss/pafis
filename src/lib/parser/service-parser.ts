@@ -4,6 +4,9 @@ import yaml from 'js-yaml';
 import { DATA_PATHS } from '../config';
 import { GraphNode } from '../graph/types';
 
+// AWS NLB base cost per LoadBalancer per month
+const LB_COST_PER_MONTH = 18.0;
+
 interface K8sService {
   metadata?: {
     name?: string;
@@ -26,6 +29,7 @@ interface K8sService {
 export interface ServiceData {
   node: GraphNode;
   selectorName: string;
+  isLoadBalancer: boolean;
 }
 
 export function parseServices(): ServiceData[] {
@@ -50,6 +54,8 @@ export function parseServices(): ServiceData[] {
           namespace: doc.metadata.namespace,
           ownerTeam: doc.metadata.labels?.owner_team,
           creator: doc.metadata.labels?.creator,
+          serviceType: doc.spec?.type || 'ClusterIP',
+          loadBalancerCostMonthly: doc.spec?.type === 'LoadBalancer' ? LB_COST_PER_MONTH : undefined,
           ports: doc.spec?.ports?.map(p => ({
             name: p.name || 'unnamed',
             port: p.port || 0,
@@ -58,7 +64,7 @@ export function parseServices(): ServiceData[] {
         rawYaml: content,
       };
 
-      results.push({ node, selectorName });
+      results.push({ node, selectorName, isLoadBalancer: doc.spec?.type === 'LoadBalancer' });
     } catch (e) {
       console.warn(`Failed to parse service ${file}:`, e);
     }

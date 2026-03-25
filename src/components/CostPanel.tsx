@@ -48,6 +48,10 @@ interface MetricsData {
   totalPotentialSavings?: string | null;
   infraCostMonthly?: string | null;
   totalCostWithInfra?: string | null;
+  loadBalancers?: Array<{ name: string; costMonthly: string }>;
+  pvcs?: Array<{ name: string; storage: string; storageClass: string; costMonthly: string }>;
+  lbCostMonthly?: string | null;
+  pvcCostMonthly?: string | null;
 }
 
 interface CostPanelProps {
@@ -130,6 +134,8 @@ export default function CostPanel({ name }: CostPanelProps) {
           <SummaryCard label="Actual" value={data.cost.actualMonthly || '-'} muted={!data.cost.actualMonthly} />
           <SummaryCard label="Savings" value={data.totalPotentialSavings || data.cost.potentialSavings || '-'} accent={(data.totalPotentialSavings || data.cost.potentialSavings) ? 'green' : undefined} muted={!data.totalPotentialSavings && !data.cost.potentialSavings} />
           <SummaryCard label="Infra" value={data.infraCostMonthly || '-'} accent="cyan" muted={!data.infraCostMonthly} />
+          {data.lbCostMonthly && <SummaryCard label="LB" value={data.lbCostMonthly} accent="purple" />}
+          {data.pvcCostMonthly && <SummaryCard label="Storage" value={data.pvcCostMonthly} accent="orange" />}
           <SummaryCard label="Total" value={data.totalCostWithInfra || '-'} accent="red" muted={!data.totalCostWithInfra} />
         </div>
 
@@ -226,6 +232,51 @@ export default function CostPanel({ name }: CostPanelProps) {
                       <span className="text-amber-400 font-mono font-bold"><SlotMachine value={db.monthlyCost} /></span>
                     </div>
                   )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* LoadBalancers */}
+        {data.loadBalancers && data.loadBalancers.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-zinc-800/80">
+            <h4 className="text-xs font-medium text-zinc-500 uppercase tracking-wide mb-3">Load Balancers</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {data.loadBalancers.map(lb => (
+                <div key={lb.name} className="glass-panel px-3 py-2.5">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-purple-400 font-mono text-sm font-bold">{lb.name}</span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-900/40 text-purple-300">LoadBalancer</span>
+                  </div>
+                  <div className="mt-1 text-xs">
+                    <span className="text-zinc-500">Monthly: </span>
+                    <span className="text-purple-300 font-mono font-bold"><SlotMachine value={lb.costMonthly} /></span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* PersistentVolumeClaims */}
+        {data.pvcs && data.pvcs.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-zinc-800/80">
+            <h4 className="text-xs font-medium text-zinc-500 uppercase tracking-wide mb-3">Storage (PVCs)</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {data.pvcs.map(pvc => (
+                <div key={pvc.name} className="glass-panel px-3 py-2.5">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-orange-400 font-mono text-sm font-bold">{pvc.name}</span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-orange-900/40 text-orange-300">{pvc.storageClass}</span>
+                  </div>
+                  <div className="flex gap-3 text-xs text-zinc-400">
+                    <span>Size: <span className="text-zinc-200">{pvc.storage}</span></span>
+                  </div>
+                  <div className="mt-1 text-xs">
+                    <span className="text-zinc-500">Monthly: </span>
+                    <span className="text-orange-300 font-mono font-bold"><SlotMachine value={pvc.costMonthly} /></span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -415,7 +466,7 @@ function SummaryCard({
 }: {
   label: string;
   value: string;
-  accent?: 'green' | 'cyan' | 'red';
+  accent?: 'green' | 'cyan' | 'red' | 'purple' | 'orange';
   muted?: boolean;
 }) {
   const valueColor = muted
@@ -426,7 +477,11 @@ function SummaryCard({
         ? 'text-red-400'
         : accent === 'cyan'
           ? 'text-cyan-400'
-          : 'text-zinc-100';
+          : accent === 'purple'
+            ? 'text-purple-400'
+            : accent === 'orange'
+              ? 'text-orange-400'
+              : 'text-zinc-100';
 
   return (
     <div className="glass-panel px-4 py-3 flex-1 min-w-0">

@@ -12,6 +12,7 @@ export const DATA_PATHS = {
   configMaps:  path.join(PAFIS_BASE, 'kubernetes/configmaps'),
   helmCharts:  path.join(PAFIS_BASE, 'helm-charts'),
   generators:  path.join(PAFIS_BASE, 'kubernetes/generators'),
+  pvc:         path.join(PAFIS_BASE, 'kubernetes/pvc'),
 };
 
 export const PROMETHEUS_URL  = process.env.PROMETHEUS_URL  || 'http://localhost:9090';

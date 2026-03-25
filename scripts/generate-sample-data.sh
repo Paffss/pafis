@@ -113,6 +113,46 @@ spec:
 YAML
 }
 
+write_lb_svc() {
+  local NAME=$1 PORT=${2:-80}
+  cat > "$OUT/kubernetes/svc/$NAME.yaml" << YAML
+apiVersion: v1
+kind: Service
+metadata:
+  name: $NAME
+  namespace: default
+  labels:
+    app: $NAME
+spec:
+  type: LoadBalancer
+  selector:
+    app: $NAME
+  ports:
+  - port: $PORT
+    targetPort: 8080
+    protocol: TCP
+YAML
+}
+
+write_pvc() {
+  local NAME=$1 STORAGE=$2 STORAGECLASS=${3:-gp3}
+  mkdir -p "$OUT/kubernetes/pvc"
+  cat > "$OUT/kubernetes/pvc/$NAME.yaml" << YAML
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: $NAME
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: $STORAGECLASS
+  resources:
+    requests:
+      storage: $STORAGE
+YAML
+}
+
 write_cm() {
   local NAME=$1
   cat > "$OUT/kubernetes/configmaps/$NAME-config.yaml" << YAML
@@ -348,6 +388,36 @@ spec:
             port:
               number: 80
 YAML
+
+# ── LoadBalancer services ─────────────────────────────────────────────────────
+# These expose public-facing endpoints and incur AWS NLB cost (~$18/mo each)
+write_lb_svc "api-gateway"       80   # production — public entry point
+write_lb_svc "frontend"          80   # staging — customer-facing UI
+write_lb_svc "admin-panel"       80   # staging — internal admin
+write_lb_svc "payment-service"   8080 # production — payment gateway
+
+# ── PersistentVolumeClaims ────────────────────────────────────────────────────
+# Spread across storage classes to demo cost differences
+mkdir -p "$OUT/kubernetes/pvc"
+
+# production — payments & core
+write_pvc "fraud-ml-service-data"      "50Gi"  "gp3"   # ML model storage
+write_pvc "ledger-service-data"        "100Gi" "io1"   # high-IOPS financial ledger
+write_pvc "transaction-service-data"   "200Gi" "gp3"   # transaction history
+write_pvc "payment-service-data"       "20Gi"  "gp3"   # payment state
+
+# staging — backend
+write_pvc "user-service-data"          "30Gi"  "gp2"   # user profile storage
+write_pvc "profile-service-data"       "20Gi"  "gp2"   # profile images/assets
+
+# qa — data & compliance
+write_pvc "analytics-service-data"     "500Gi" "gp3"   # analytics warehouse
+write_pvc "report-service-data"        "100Gi" "gp2"   # report output storage
+write_pvc "kyc-service-data"           "50Gi"  "io1"   # KYC documents (compliance)
+
+# dev — ops tooling
+write_pvc "artifact-store-data"        "200Gi" "gp3"   # CI artifact storage
+write_pvc "gitops-controller-data"     "10Gi"  "gp2"   # gitops state
 
 # ── Helm charts ───────────────────────────────────────────────────────────────
 write_helm "api-gateway"          "2.3.1"  "API Gateway — entry point for all client traffic"

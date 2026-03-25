@@ -27,6 +27,10 @@ interface Stats {
   noOwnerTeam: number;
   environments: number;
   environmentDistribution: Record<string, number>;
+  pvcs: number;
+  loadBalancers: number;
+  pvcCostMonthly: number;
+  lbCostMonthly: number;
 }
 
 interface DashboardProps {
@@ -69,6 +73,8 @@ export default function Dashboard({ onSelectService }: DashboardProps) {
             </h2>
             <p className="text-zinc-400 mt-1">
               {stats.services} services · {stats.helmCharts} helm charts · {stats.databases} databases · {stats.networkPolicies} network rules
+              {stats.loadBalancers > 0 && ` · ${stats.loadBalancers} load balancers`}
+              {stats.pvcs > 0 && ` · ${stats.pvcs} PVCs`}
             </p>
           </div>
           {/* Right side actions */}
@@ -107,6 +113,12 @@ export default function Dashboard({ onSelectService }: DashboardProps) {
           <MiniStat label="Graph Edges" value={stats.edges} />
           <MiniStat label="ConfigMaps" value={stats.configmaps} />
           <MiniStat label="Secrets" value={stats.secrets} />
+          {stats.loadBalancers > 0 && (
+            <MiniStatText label="LB Cost/mo" value={`$${stats.lbCostMonthly.toFixed(0)}/mo`} />
+          )}
+          {stats.pvcs > 0 && (
+            <MiniStatText label="Storage Cost/mo" value={`$${stats.pvcCostMonthly.toFixed(2)}/mo`} />
+          )}
         </div>
       </div>
 
@@ -199,6 +211,15 @@ function MiniStat({ label, value }: { label: string; value: number }) {
   return (
     <div className="text-center p-3 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
       <div className="text-2xl font-bold text-zinc-100">{value.toLocaleString()}</div>
+      <div className="text-xs text-zinc-500 mt-0.5">{label}</div>
+    </div>
+  );
+}
+
+function MiniStatText({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="text-center p-3 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+      <div className="text-2xl font-bold text-amber-400">{value}</div>
       <div className="text-xs text-zinc-500 mt-0.5">{label}</div>
     </div>
   );

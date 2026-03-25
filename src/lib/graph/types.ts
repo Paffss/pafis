@@ -7,7 +7,8 @@ export type NodeType =
   | 'secret'
   | 'helm-chart'
   | 'database'
-  | 'servicemonitor';
+  | 'servicemonitor'
+  | 'pvc';
 
 export interface GraphNode {
   id: string;
@@ -37,6 +38,12 @@ export interface GraphNode {
     dependencies?: string[];
     configMapKeys?: Record<string, string[]>; // configmap name -> keys used
     environment?: 'production' | 'staging' | 'qa' | 'dev' | 'unknown';
+    serviceType?: string;           // ClusterIP | NodePort | LoadBalancer
+    pvcStorage?: string;            // raw string e.g. "50Gi"
+    pvcStorageClass?: string;       // gp2 | gp3 | io1 | standard | etc.
+    pvcStorageBytes?: number;       // parsed bytes for cost calc
+    pvcCostMonthly?: number;        // pre-calculated storage cost
+    loadBalancerCostMonthly?: number; // pre-calculated LB cost
   };
   rawYaml?: string;
 }
@@ -50,7 +57,8 @@ export type EdgeType =
   | 'uses-database'
   | 'helm-depends'
   | 'family-member'
-  | 'network-allows';
+  | 'network-allows'
+  | 'uses-pvc';
 
 export interface GraphEdge {
   source: string;

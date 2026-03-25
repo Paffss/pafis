@@ -5,6 +5,7 @@ import {
   parseHelmCharts,
   parseServiceMonitors,
   parseNetworkPolicies,
+  parsePVCs,
 } from '../parser';
 import {
   InfraGraph,
@@ -277,7 +278,26 @@ function buildGraph(): InfraGraph {
     }
   }
 
-  // 10. Family member edges
+  // 10. Add PVC nodes + link to deployments via name heuristic
+  console.time('parsePVCs');
+  const pvcs = parsePVCs();
+  console.timeEnd('parsePVCs');
+
+  for (const pvc of pvcs) {
+    nodes.set(pvc.node.id, pvc.node);
+    // Try to link PVC to its owner deployment
+    const deployId = `deploy:${pvc.ownerDeploymentHint}`;
+    if (nodes.has(deployId)) {
+      addEdge({
+        source: deployId,
+        target: pvc.node.id,
+        type: 'uses-pvc',
+        label: pvc.node.metadata.pvcStorage,
+      });
+    }
+  }
+
+  // 11. Family member edges
   const families = new Map<string, string[]>();
   for (const dep of deployments) {
     const family = dep.node.metadata.family!;
@@ -324,6 +344,10 @@ export function getGraphStats() {
     databases: 0,
     serviceMonitors: 0,
     networkPolicies: 0,
+    pvcs: 0,
+    loadBalancers: 0,
+    pvcCostMonthly: 0,
+    lbCostMonthly: 0,
     edges: graph.edges.length,
     teamDistribution: {} as Record<string, number>,
     noLimits: 0,
@@ -356,7 +380,9 @@ export function getGraphStats() {
         const env = node.metadata.environment || 'unknown';
         stats.environmentDistribution[env] = (stats.environmentDistribution[env] || 0) + 1;
         break;
-      case 'service': stats.services++; break;
+      case 'service':
+        stats.services++;
+        break;
       case 'ingress':
         stats.ingresses++;
         break;
@@ -365,11 +391,23 @@ export function getGraphStats() {
       case 'secret': stats.secrets++; break;
       case 'database': stats.databases++; break;
       case 'servicemonitor': stats.serviceMonitors++; break;
+      case 'pvc': stats.pvcs++; break;
     }
   }
 
   // Count network policy edges
   stats.networkPolicies = graph.edges.filter(e => e.type === 'network-allows').length;
+
+  // Tally LoadBalancer and PVC costs
+  for (const node of graph.nodes.values()) {
+    if (node.type === 'service' && node.metadata.loadBalancerCostMonthly) {
+      stats.loadBalancers++;
+      stats.lbCostMonthly += node.metadata.loadBalancerCostMonthly;
+    }
+    if (node.type === 'pvc' && node.metadata.pvcCostMonthly) {
+      stats.pvcCostMonthly += node.metadata.pvcCostMonthly;
+    }
+  }
 
   // Derive environment count from deployment metadata
   stats.environments = Object.keys(stats.environmentDistribution).filter(e => e !== 'unknown').length;
