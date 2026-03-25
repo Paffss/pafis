@@ -33,21 +33,41 @@ interface Stats {
   lbCostMonthly: number;
 }
 
+interface Deployment {
+  name: string;
+  team: string;
+  environment: string;
+  replicas: number;
+  image: string;
+  noLimits: boolean;
+  latestTag: boolean;
+  singleReplica: boolean;
+  noLivenessProbe: boolean;
+  noOwnerTeam: boolean;
+}
+
+type FilterType = 'env' | 'noLimits' | 'latestTag' | 'singleReplica' | 'noLivenessProbe' | 'noOwnerTeam';
+
+interface ActiveFilter {
+  type: FilterType;
+  value: string; // env name for env filter, ignored for risk filters
+  label: string;
+}
+
 interface DashboardProps {
   onSelectService?: (name: string) => void;
 }
 
 export default function Dashboard({ onSelectService }: DashboardProps) {
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'risks' | 'unused' | 'ai-costs'>('overview');
+  const [stats, setStats]               = useState<Stats | null>(null);
+  const [deployments, setDeployments]   = useState<Deployment[]>([]);
+  const [activeFilter, setActiveFilter] = useState<ActiveFilter | null>(null);
+  const [activeTab, setActiveTab]       = useState<'overview' | 'risks' | 'unused' | 'ai-costs'>('overview');
   const [selectedTeam, setSelectedTeam] = useState<{ name: string; color: string } | null>(null);
-  const [selectedEnv, setSelectedEnv] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch('/api/stats')
-      .then(r => r.json())
-      .then(setStats)
-      .catch(() => null);
+    fetch('/api/stats').then(r => r.json()).then(setStats).catch(() => null);
+    fetch('/api/deployments').then(r => r.json()).then(setDeployments).catch(() => []);
   }, []);
 
   if (!stats) {
@@ -59,7 +79,24 @@ export default function Dashboard({ onSelectService }: DashboardProps) {
   }
 
   const teamEntries = Object.entries(stats.teamDistribution).sort((a, b) => b[1] - a[1]);
-  const totalRisks = stats.noLimits + stats.noLivenessProbe;
+  const totalRisks  = stats.noLimits + stats.noLivenessProbe;
+
+  // Apply active filter to deployments
+  const filteredDeployments = activeFilter ? deployments.filter(d => {
+    if (activeFilter.type === 'env')            return d.environment === activeFilter.value;
+    if (activeFilter.type === 'noLimits')       return d.noLimits;
+    if (activeFilter.type === 'latestTag')      return d.latestTag;
+    if (activeFilter.type === 'singleReplica')  return d.singleReplica;
+    if (activeFilter.type === 'noLivenessProbe') return d.noLivenessProbe;
+    if (activeFilter.type === 'noOwnerTeam')    return d.noOwnerTeam;
+    return false;
+  }) : [];
+
+  const toggleFilter = (filter: ActiveFilter) => {
+    setActiveFilter(prev =>
+      prev?.type === filter.type && prev?.value === filter.value ? null : filter
+    );
+  };
 
   return (
     <div className="space-y-5">
@@ -77,9 +114,7 @@ export default function Dashboard({ onSelectService }: DashboardProps) {
               {stats.pvcs > 0 && ` · ${stats.pvcs} PVCs`}
             </p>
           </div>
-          {/* Right side actions */}
           <div className="flex items-center gap-3">
-            {/* Risk badge */}
             {totalRisks > 0 && (
               <button
                 onClick={() => setActiveTab('risks')}
@@ -90,31 +125,23 @@ export default function Dashboard({ onSelectService }: DashboardProps) {
                 <span className="text-red-400/70 text-sm">critical issues →</span>
               </button>
             )}
-            {/* Export button */}
             <a
-              href="/report"
-              target="_blank"
-              rel="noopener noreferrer"
+              href="/report" target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all"
-              style={{
-                color: '#22d3ee',
-                background: 'rgba(34,211,238,0.08)',
-                border: '1px solid rgba(34,211,238,0.15)',
-              }}
+              style={{ color: '#22d3ee', background: 'rgba(34,211,238,0.08)', border: '1px solid rgba(34,211,238,0.15)' }}
             >
               ↓ Export PDF
             </a>
           </div>
         </div>
 
-        {/* Graph stats row */}
         <div className="grid grid-cols-4 gap-3 mt-5">
           <MiniStat label="Graph Nodes" value={stats.totalNodes} />
           <MiniStat label="Graph Edges" value={stats.edges} />
-          <MiniStat label="ConfigMaps" value={stats.configmaps} />
-          <MiniStat label="Secrets" value={stats.secrets} />
+          <MiniStat label="ConfigMaps"  value={stats.configmaps} />
+          <MiniStat label="Secrets"     value={stats.secrets} />
           {stats.loadBalancers > 0 && (
-            <MiniStatText label="LB Cost/mo" value={`$${stats.lbCostMonthly.toFixed(0)}/mo`} />
+            <MiniStatText label="LB Cost/mo"      value={`$${stats.lbCostMonthly.toFixed(0)}/mo`} />
           )}
           {stats.pvcs > 0 && (
             <MiniStatText label="Storage Cost/mo" value={`$${stats.pvcCostMonthly.toFixed(2)}/mo`} />
@@ -144,28 +171,58 @@ export default function Dashboard({ onSelectService }: DashboardProps) {
 
       {activeTab === 'overview' ? (
         <div className="space-y-5">
-          {/* Risk overview */}
+
+          {/* Production Readiness — clickable risk cards */}
           <div className="glass-panel p-5">
             <h3 className="text-sm font-bold uppercase tracking-widest text-zinc-500 mb-4">Production Readiness</h3>
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-              <RiskCard label="No Resource Limits"   value={stats.noLimits}        total={stats.deployments} severity="critical" />
-              <RiskCard label="Single Replica"        value={stats.singleReplica}   total={stats.deployments} severity="warning" />
-              <RiskCard label="Using :latest tag"     value={stats.latestTag}        total={stats.deployments} severity="critical" />
-              <RiskCard label="No Liveness Probe"    value={stats.noLivenessProbe} total={stats.deployments} severity="warning" />
-              <RiskCard label="No Owner Team"         value={stats.noOwnerTeam || 0} total={stats.deployments} severity="warning" />
+              <RiskCard
+                label="No Resource Limits"  value={stats.noLimits}        total={stats.deployments} severity="critical"
+                active={activeFilter?.type === 'noLimits'}
+                onClick={() => toggleFilter({ type: 'noLimits', value: '', label: 'No Resource Limits' })}
+              />
+              <RiskCard
+                label="Single Replica"       value={stats.singleReplica}   total={stats.deployments} severity="warning"
+                active={activeFilter?.type === 'singleReplica'}
+                onClick={() => toggleFilter({ type: 'singleReplica', value: '', label: 'Single Replica' })}
+              />
+              <RiskCard
+                label="Using :latest tag"    value={stats.latestTag}        total={stats.deployments} severity="critical"
+                active={activeFilter?.type === 'latestTag'}
+                onClick={() => toggleFilter({ type: 'latestTag', value: '', label: 'Using :latest tag' })}
+              />
+              <RiskCard
+                label="No Liveness Probe"   value={stats.noLivenessProbe} total={stats.deployments} severity="warning"
+                active={activeFilter?.type === 'noLivenessProbe'}
+                onClick={() => toggleFilter({ type: 'noLivenessProbe', value: '', label: 'No Liveness Probe' })}
+              />
+              <RiskCard
+                label="No Owner Team"        value={stats.noOwnerTeam || 0} total={stats.deployments} severity="warning"
+                active={activeFilter?.type === 'noOwnerTeam'}
+                onClick={() => toggleFilter({ type: 'noOwnerTeam', value: '', label: 'No Owner Team' })}
+              />
             </div>
           </div>
 
-          {/* Environment distribution */}
+          {/* Environment distribution — clickable */}
           <EnvironmentPanel
             distribution={stats.environmentDistribution}
-            selected={selectedEnv}
-            onSelect={env => setSelectedEnv(prev => prev === env ? null : env)}
+            selected={activeFilter?.type === 'env' ? activeFilter.value : null}
+            onSelect={env => toggleFilter({ type: 'env', value: env, label: `${env} services` })}
           />
 
-          {/* Bottom row — team donut + top costs */}
+          {/* Filtered service list drawer */}
+          {activeFilter && (
+            <ServiceListDrawer
+              filter={activeFilter}
+              deployments={filteredDeployments}
+              onSelectService={name => onSelectService?.(name)}
+              onClose={() => setActiveFilter(null)}
+            />
+          )}
+
+          {/* Bottom row */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
-            {/* Team distribution — 1/3 width, team services expand below donut */}
             <div className="glass-panel p-5 space-y-4">
               <h3 className="text-sm font-bold uppercase tracking-widest text-zinc-500">
                 Team Ownership ({teamEntries.length} teams)
@@ -178,7 +235,6 @@ export default function Dashboard({ onSelectService }: DashboardProps) {
                 )}
                 selectedTeam={selectedTeam?.name}
               />
-              {/* Team services — inline below donut */}
               {selectedTeam && (
                 <TeamPanel
                   team={selectedTeam.name}
@@ -189,8 +245,6 @@ export default function Dashboard({ onSelectService }: DashboardProps) {
                 />
               )}
             </div>
-
-            {/* Top cost services — 2/3 width */}
             <div className="lg:col-span-2">
               <TopCostServices onSelectService={name => onSelectService?.(name)} />
             </div>
@@ -207,41 +261,78 @@ export default function Dashboard({ onSelectService }: DashboardProps) {
   );
 }
 
-function MiniStat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="text-center p-3 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-      <div className="text-2xl font-bold text-zinc-100">{value.toLocaleString()}</div>
-      <div className="text-xs text-zinc-500 mt-0.5">{label}</div>
-    </div>
-  );
-}
+// ── ServiceListDrawer ──────────────────────────────────────────────────────────
+const ENV_DOT: Record<string, string> = {
+  production: '#ef4444', staging: '#eab308', qa: '#f97316', dev: '#22c55e', unknown: '#71717a',
+};
 
-function MiniStatText({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="text-center p-3 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-      <div className="text-2xl font-bold text-amber-400">{value}</div>
-      <div className="text-xs text-zinc-500 mt-0.5">{label}</div>
-    </div>
-  );
-}
-
-function RiskCard({ label, value, total, severity }: {
-  label: string; value: number; total: number; severity: 'critical' | 'warning';
+function ServiceListDrawer({ filter, deployments, onSelectService, onClose }: {
+  filter: ActiveFilter;
+  deployments: Deployment[];
+  onSelectService: (name: string) => void;
+  onClose: () => void;
 }) {
-  const pct = total > 0 ? Math.round((value / total) * 100) : 0;
-  const isCritical = severity === 'critical';
-  const color = isCritical ? '#f87171' : '#fbbf24';
-  const bg    = isCritical ? 'rgba(248,113,113,0.08)' : 'rgba(251,191,36,0.08)';
-  const border = isCritical ? 'rgba(248,113,113,0.2)' : 'rgba(251,191,36,0.15)';
   return (
-    <div className="text-center p-4 rounded-lg" style={{ background: bg, border: `1px solid ${border}` }}>
-      <div className="text-3xl font-black" style={{ color }}>{value}</div>
-      <div className="text-xs text-zinc-400 mt-1 leading-tight">{label}</div>
-      <div className="text-xs mt-1" style={{ color: `${color}80` }}>{pct}% of services</div>
+    <div className="glass-panel p-5" style={{ border: '1px solid rgba(34,211,238,0.15)' }}>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-bold text-cyan-400">{filter.label}</span>
+          <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400">
+            {deployments.length} service{deployments.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+        <button
+          onClick={onClose}
+          className="text-zinc-500 hover:text-zinc-300 transition-colors text-xs"
+        >
+          ✕ close
+        </button>
+      </div>
+
+      {deployments.length === 0 ? (
+        <p className="text-zinc-500 text-sm">No services match this filter.</p>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+          {deployments.map(d => (
+            <button
+              key={d.name}
+              onClick={() => onSelectService(d.name)}
+              className="text-left p-3 rounded-lg transition-all hover:scale-[1.01]"
+              style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}
+            >
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <span
+                  className="w-1.5 h-1.5 rounded-full shrink-0"
+                  style={{ background: ENV_DOT[d.environment] || ENV_DOT.unknown }}
+                />
+                <span className="text-sm font-medium text-zinc-100 truncate">{d.name}</span>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {d.team !== 'unknown' && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-300">{d.team}</span>
+                )}
+                {d.noLimits && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-300">no limits</span>
+                )}
+                {d.latestTag && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-300">:latest</span>
+                )}
+                {d.singleReplica && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300">1 replica</span>
+                )}
+                {d.noLivenessProbe && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300">no probe</span>
+                )}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
+// ── EnvironmentPanel ───────────────────────────────────────────────────────────
 const ENV_CONFIG: Record<string, { label: string; bg: string; text: string; dot: string; border: string }> = {
   production: { label: 'Production', bg: 'rgba(239,68,68,0.1)',  text: '#fca5a5', dot: '#ef4444', border: 'rgba(239,68,68,0.25)' },
   staging:    { label: 'Staging',    bg: 'rgba(234,179,8,0.1)',  text: '#fde047', dot: '#eab308', border: 'rgba(234,179,8,0.25)' },
@@ -263,7 +354,7 @@ function EnvironmentPanel({ distribution, selected, onSelect }: {
   return (
     <div className="glass-panel p-5">
       <h3 className="text-sm font-bold uppercase tracking-widest text-zinc-500 mb-4">
-        Environments ({entries.length} detected)
+        Environments ({entries.length} detected) — <span className="text-zinc-600 font-normal normal-case tracking-normal">click to filter services</span>
       </h3>
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">
         {entries.map(env => {
@@ -296,6 +387,60 @@ function EnvironmentPanel({ distribution, selected, onSelect }: {
   );
 }
 
+// ── Shared primitives ──────────────────────────────────────────────────────────
+function MiniStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="text-center p-3 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+      <div className="text-2xl font-bold text-zinc-100">{value.toLocaleString()}</div>
+      <div className="text-xs text-zinc-500 mt-0.5">{label}</div>
+    </div>
+  );
+}
+
+function MiniStatText({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="text-center p-3 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+      <div className="text-2xl font-bold text-amber-400">{value}</div>
+      <div className="text-xs text-zinc-500 mt-0.5">{label}</div>
+    </div>
+  );
+}
+
+function RiskCard({ label, value, total, severity, active, onClick }: {
+  label: string; value: number; total: number; severity: 'critical' | 'warning';
+  active?: boolean; onClick?: () => void;
+}) {
+  const pct        = total > 0 ? Math.round((value / total) * 100) : 0;
+  const isCritical = severity === 'critical';
+  const color      = isCritical ? '#f87171' : '#fbbf24';
+  const bg         = active
+    ? (isCritical ? 'rgba(248,113,113,0.18)' : 'rgba(251,191,36,0.18)')
+    : (isCritical ? 'rgba(248,113,113,0.08)' : 'rgba(251,191,36,0.08)');
+  const border     = isCritical ? 'rgba(248,113,113,0.2)' : 'rgba(251,191,36,0.15)';
+
+  return (
+    <button
+      onClick={onClick}
+      className="text-center p-4 rounded-lg w-full transition-all"
+      style={{
+        background: bg,
+        border: `1px solid ${active ? color : border}`,
+        transform: active ? 'scale(1.02)' : 'scale(1)',
+        cursor: value > 0 ? 'pointer' : 'default',
+      }}
+    >
+      <div className="text-3xl font-black" style={{ color }}>{value}</div>
+      <div className="text-xs text-zinc-400 mt-1 leading-tight">{label}</div>
+      <div className="text-xs mt-1" style={{ color: `${color}80` }}>{pct}% of services</div>
+      {value > 0 && (
+        <div className="text-[10px] mt-1.5" style={{ color: `${color}60` }}>
+          {active ? '▲ hide list' : '▼ show list'}
+        </div>
+      )}
+    </button>
+  );
+}
+
 const TEAM_COLORS = [
   '#22d3ee','#3b82f6','#8b5cf6','#14b8a6','#f59e0b',
   '#ec4899','#10b981','#f97316','#6366f1','#06b6d4',
@@ -317,7 +462,6 @@ function TeamDonut({ data, total, onSelectTeam, selectedTeam }: {
 
   return (
     <div className="space-y-4">
-      {/* Donut centered */}
       <div className="flex justify-center">
         <div className="relative w-[180px] h-[180px] shrink-0">
           <svg viewBox="0 0 200 200" className="w-full h-full -rotate-90" style={{ cursor: 'pointer' }}>
@@ -325,7 +469,7 @@ function TeamDonut({ data, total, onSelectTeam, selectedTeam }: {
             {data.map(([team, count], i) => {
               const angle = (count / total) * 360;
               const start = startAngles[i];
-              const end = start + angle;
+              const end   = start + angle;
               const color = TEAM_COLORS[i % TEAM_COLORS.length];
               const isSelected = selectedTeam === team;
               if (angle < 0.5) return null;
@@ -338,8 +482,8 @@ function TeamDonut({ data, total, onSelectTeam, selectedTeam }: {
               );
               const x1 = cx + radius * Math.cos((start * Math.PI) / 180);
               const y1 = cy + radius * Math.sin((start * Math.PI) / 180);
-              const x2 = cx + radius * Math.cos((end * Math.PI) / 180);
-              const y2 = cy + radius * Math.sin((end * Math.PI) / 180);
+              const x2 = cx + radius * Math.cos((end   * Math.PI) / 180);
+              const y2 = cy + radius * Math.sin((end   * Math.PI) / 180);
               return (
                 <path key={i}
                   d={`M ${x1} ${y1} A ${radius} ${radius} 0 ${angle > 180 ? 1 : 0} 1 ${x2} ${y2}`}
@@ -370,11 +514,9 @@ function TeamDonut({ data, total, onSelectTeam, selectedTeam }: {
           </div>
         </div>
       </div>
-
-      {/* Team legend — compact grid below the donut */}
       <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
         {data.map(([team, count], i) => {
-          const color = TEAM_COLORS[i % TEAM_COLORS.length];
+          const color      = TEAM_COLORS[i % TEAM_COLORS.length];
           const isSelected = selectedTeam === team;
           return (
             <button key={team}

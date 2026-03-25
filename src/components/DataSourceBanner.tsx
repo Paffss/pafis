@@ -68,7 +68,8 @@ export default function DataSourceBanner({ mode = 'auto' }: DataSourceBannerProp
                 not precise billing.
               </p>
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500 pt-1">
-                <span>⚠️ Does not include storage or load balancer costs</span>
+                <span>💾 Storage (PVC): $0.08–$0.125/GiB-month by storage class (gp3/gp2/io1)</span>
+                <span>⚖️ Load Balancers: $18/mo per AWS NLB (base fee only)</span>
                 <span>⚠️ Actual cost depends on instance type, region and pricing tier</span>
                 <span>📊 Prometheus must be connected for real usage-based calculations</span>
               </div>
