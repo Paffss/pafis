@@ -22,6 +22,7 @@ interface FilterOptions {
 interface SearchBarProps {
   onSelect: (name: string) => void;
   selected?: string;
+  onOpenGuide?: () => void;
 }
 
 const ENV_DOT: Record<string, string> = {
@@ -36,7 +37,7 @@ const RISK_CHIPS = [
   { label: 'Single replica',token: 'risk:single',    color: 'rgba(251,191,36,0.15)',  text: '#fde047', border: 'rgba(251,191,36,0.3)' },
 ];
 
-export default function SearchBar({ onSelect, selected }: SearchBarProps) {
+export default function SearchBar({ onSelect, selected, onOpenGuide }: SearchBarProps) {
   const [query, setQuery]                   = useState(selected || '');
   const [results, setResults]               = useState<SearchItem[]>([]);
   const [filterOpts, setFilterOpts]         = useState<FilterOptions>({ teams: [], environments: [] });
@@ -195,6 +196,18 @@ export default function SearchBar({ onSelect, selected }: SearchBarProps) {
             </span>
           )}
         </button>
+
+        {/* ? Guide button — next to filters */}
+        {onOpenGuide && (
+          <button
+            onClick={onOpenGuide}
+            className="w-9 h-9 flex items-center justify-center rounded-lg text-xs font-bold transition-all shrink-0"
+            style={{ color: '#22d3ee', background: 'rgba(34,211,238,0.08)', border: '1px solid rgba(34,211,238,0.15)' }}
+            title="Mission Briefing"
+          >
+            ?
+          </button>
+        )}
       </div>
 
       {/* Active token chips below input */}

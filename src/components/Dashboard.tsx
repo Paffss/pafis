@@ -100,42 +100,25 @@ export default function Dashboard({ onSelectService }: DashboardProps) {
 
   return (
     <div className="space-y-5">
-      {/* Hero */}
-      <div className="glass-panel p-6">
-        <div className="flex items-start justify-between flex-wrap gap-4">
-          <div>
-            <h2 className="text-4xl font-black text-zinc-100 tracking-tight">
-              {stats.deployments}
-              <span className="text-xl font-normal text-zinc-500 ml-2">deployments</span>
-            </h2>
-            <p className="text-zinc-400 mt-1">
-              {stats.services} services · {stats.helmCharts} helm charts · {stats.databases} databases · {stats.networkPolicies} network rules
-              {stats.loadBalancers > 0 && ` · ${stats.loadBalancers} load balancers`}
-              {stats.pvcs > 0 && ` · ${stats.pvcs} PVCs`}
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            {totalRisks > 0 && (
-              <button
-                onClick={() => setActiveTab('risks')}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all"
-                style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}
-              >
-                <span className="text-red-400 text-2xl font-bold">{totalRisks}</span>
-                <span className="text-red-400/70 text-sm">critical issues →</span>
-              </button>
-            )}
-            <a
-              href="/report" target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all"
-              style={{ color: '#22d3ee', background: 'rgba(34,211,238,0.08)', border: '1px solid rgba(34,211,238,0.15)' }}
-            >
-              ↓ Export PDF
-            </a>
-          </div>
+      {/* Hero — centered */}
+      <div className="glass-panel px-6 py-10 text-center relative overflow-hidden">
+        {/* Subtle glow behind number */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="w-64 h-64 rounded-full" style={{ background: 'radial-gradient(circle, rgba(34,211,238,0.06) 0%, transparent 70%)' }} />
         </div>
 
-        <div className="grid grid-cols-4 gap-3 mt-5">
+        <h2 className="text-7xl font-black text-zinc-100 tracking-tight tabular-nums">
+          {stats.deployments}
+        </h2>
+        <p className="text-xl text-zinc-400 font-light mt-1 tracking-wide">Deployments</p>
+        <p className="text-sm text-zinc-500 mt-3">
+          {stats.services} services · {stats.helmCharts} helm charts · {stats.databases} databases · {stats.networkPolicies} network rules
+          {stats.loadBalancers > 0 && ` · ${stats.loadBalancers} load balancers`}
+          {stats.pvcs > 0 && ` · ${stats.pvcs} PVCs`}
+        </p>
+
+        {/* Stats row */}
+        <div className="flex flex-wrap justify-center gap-3 mt-6">
           <MiniStat label="Graph Nodes" value={stats.totalNodes} />
           <MiniStat label="Graph Edges" value={stats.edges} />
           <MiniStat label="ConfigMaps"  value={stats.configmaps} />
@@ -146,6 +129,27 @@ export default function Dashboard({ onSelectService }: DashboardProps) {
           {stats.pvcs > 0 && (
             <MiniStatText label="Storage Cost/mo" value={`$${stats.pvcCostMonthly.toFixed(2)}/mo`} />
           )}
+        </div>
+
+        {/* Action buttons — top right */}
+        <div className="absolute top-4 right-4 flex items-center gap-2">
+          {totalRisks > 0 && (
+            <button
+              onClick={() => setActiveTab('risks')}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all text-sm"
+              style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}
+            >
+              <span className="text-red-400 font-bold">{totalRisks}</span>
+              <span className="text-red-400/70">issues →</span>
+            </button>
+          )}
+          <a
+            href="/report" target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all"
+            style={{ color: '#22d3ee', background: 'rgba(34,211,238,0.08)', border: '1px solid rgba(34,211,238,0.15)' }}
+          >
+            ↓ Export PDF
+          </a>
         </div>
       </div>
 
@@ -221,21 +225,44 @@ export default function Dashboard({ onSelectService }: DashboardProps) {
             />
           )}
 
-          {/* Bottom row */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
-            <div className="glass-panel p-5 space-y-4">
-              <h3 className="text-sm font-bold uppercase tracking-widest text-zinc-500">
-                Team Ownership ({teamEntries.length} teams)
-              </h3>
-              <TeamDonut
-                data={teamEntries}
-                total={stats.deployments}
-                onSelectTeam={(name, color) => setSelectedTeam(prev =>
-                  prev?.name === name ? null : { name, color }
-                )}
-                selectedTeam={selectedTeam?.name}
-              />
-              {selectedTeam && (
+          {/* Team Ownership — full width, chart left + legend right */}
+          <div className="glass-panel p-5">
+            <h3 className="text-sm font-bold uppercase tracking-widest text-zinc-500 mb-4">
+              Team Ownership ({teamEntries.length} teams)
+            </h3>
+            <div className="flex gap-6 items-start">
+              {/* Donut chart */}
+              <div className="shrink-0">
+                <TeamDonut
+                  data={teamEntries}
+                  total={stats.deployments}
+                  onSelectTeam={(name, color) => setSelectedTeam(prev =>
+                    prev?.name === name ? null : { name, color }
+                  )}
+                  selectedTeam={selectedTeam?.name}
+                />
+              </div>
+              {/* Legend — scrollable grid */}
+              <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-2 content-start">
+                {teamEntries.map(([team, count], i) => {
+                  const color = TEAM_COLORS[i % TEAM_COLORS.length];
+                  const isSelected = selectedTeam?.name === team;
+                  return (
+                    <button key={team}
+                      onClick={() => setSelectedTeam(prev => prev?.name === team ? null : { name: team, color })}
+                      className="flex items-center gap-2 transition-all text-left rounded px-2 py-1.5 hover:bg-white/5"
+                      style={{ opacity: selectedTeam && !isSelected ? 0.4 : 1 }}>
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color, transform: isSelected ? 'scale(1.4)' : 'scale(1)', transition: 'transform 0.2s' }} />
+                      <span className="text-xs truncate" style={{ color: isSelected ? '#e2e8f0' : '#a1a1aa' }}>{team === 'unknown' ? <span className="text-red-400">unowned</span> : team}</span>
+                      <span className="text-xs text-zinc-600 font-mono ml-auto">{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            {/* Selected team services — inline below */}
+            {selectedTeam && (
+              <div className="mt-4 pt-4 border-t border-zinc-800">
                 <TeamPanel
                   team={selectedTeam.name}
                   color={selectedTeam.color}
@@ -243,11 +270,14 @@ export default function Dashboard({ onSelectService }: DashboardProps) {
                   onClose={() => setSelectedTeam(null)}
                   inline
                 />
-              )}
-            </div>
-            <div className="lg:col-span-2">
-              <TopCostServices onSelectService={name => onSelectService?.(name)} />
-            </div>
+              </div>
+            )}
+          </div>
+
+          {/* OPS Score Leaderboard + Top Cost Services — side by side */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <OpsLeaderboard deployments={deployments} onSelectService={name => onSelectService?.(name)} onSelectTeam={team => { setSelectedTeam({ name: team, color: TEAM_COLORS[teamEntries.findIndex(([t]) => t === team) % TEAM_COLORS.length] }); }} />
+            <TopCostServices onSelectService={name => onSelectService?.(name)} />
           </div>
         </div>
       ) : activeTab === 'risks' ? (
@@ -388,9 +418,128 @@ function EnvironmentPanel({ distribution, selected, onSelect }: {
 }
 
 // ── Shared primitives ──────────────────────────────────────────────────────────
+// ── OPS Score Leaderboard ─────────────────────────────────────────────────────
+function calcOpsScore(d: Deployment): number {
+  let score = 0;
+  if (!d.noLimits)        score += 30; // resource limits
+  if (!d.noLivenessProbe) score += 20; // liveness probe
+  if (!d.latestTag)       score += 20; // semver tag
+  if (!d.singleReplica)   score += 15; // HA
+  if (!d.noOwnerTeam)     score += 15; // owner team
+  return score;
+}
+
+function getGrade(score: number): { grade: string; color: string } {
+  if (score >= 90) return { grade: 'A', color: '#4ade80' };
+  if (score >= 75) return { grade: 'B', color: '#22d3ee' };
+  if (score >= 60) return { grade: 'C', color: '#fbbf24' };
+  if (score >= 40) return { grade: 'D', color: '#f97316' };
+  return               { grade: 'F', color: '#ef4444' };
+}
+
+function OpsLeaderboard({ deployments, onSelectService, onSelectTeam }: {
+  deployments: Deployment[];
+  onSelectService: (name: string) => void;
+  onSelectTeam?: (team: string) => void;
+}) {
+  const [tab, setTab] = useState<'services' | 'teams'>('teams');
+  const MAX = 100;
+
+  // Team scores — average across team services
+  const teamMap = new Map<string, number[]>();
+  for (const d of deployments) {
+    const scores = teamMap.get(d.team) || [];
+    scores.push(calcOpsScore(d));
+    teamMap.set(d.team, scores);
+  }
+  const teamScores = [...teamMap.entries()]
+    .map(([team, scores]) => ({
+      team,
+      count: scores.length,
+      score: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length),
+    }))
+    .filter(t => t.team !== 'unknown')
+    .sort((a, b) => b.score - a.score);
+
+  // Worst services
+  const worstServices = [...deployments]
+    .map(d => ({ ...d, score: calcOpsScore(d) }))
+    .sort((a, b) => a.score - b.score)
+    .slice(0, 8);
+
+  const medals = ['🥇', '🥈', '🥉'];
+
+  return (
+    <div className="glass-panel p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-bold uppercase tracking-widest text-zinc-500">OPS Score Leaderboard</h3>
+        <div className="flex gap-1">
+          {(['teams', 'services'] as const).map(t => (
+            <button key={t} onClick={() => setTab(t)}
+              className="text-xs px-3 py-1 rounded-lg transition-all capitalize"
+              style={{
+                background: tab === t ? 'rgba(34,211,238,0.12)' : 'rgba(255,255,255,0.04)',
+                color:      tab === t ? '#22d3ee' : '#71717a',
+                border:     `1px solid ${tab === t ? 'rgba(34,211,238,0.25)' : 'rgba(255,255,255,0.08)'}`,
+              }}>
+              {t === 'teams' ? 'Team Rankings' : 'Worst Services'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {tab === 'teams' ? (
+        <div className="space-y-2">
+          {teamScores.map((t, i) => {
+            const { grade, color } = getGrade(t.score);
+            return (
+              <button key={t.team} onClick={() => onSelectTeam?.(t.team)} className="flex items-center gap-3 w-full text-left hover:bg-white/3 rounded-lg px-1 py-0.5 transition-all">
+                <span className="text-base w-6 shrink-0">{medals[i] || <span className="text-zinc-600 text-xs font-mono">{i + 1}</span>}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium text-zinc-200 truncate">{t.team}</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs text-zinc-500">{t.count} services</span>
+                      <span className="text-xs font-bold w-12 text-right" style={{ color }}>{t.score} / {MAX}</span>
+                      <span className="text-xs font-black w-5 text-center" style={{ color }}>{grade}</span>
+                    </div>
+                  </div>
+                  <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                    <div className="h-full rounded-full transition-all" style={{ width: `${t.score}%`, background: color }} />
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          <p className="text-xs text-zinc-500 mb-3">Services needing the most attention:</p>
+          {worstServices.map(d => {
+            const { grade, color } = getGrade(d.score);
+            return (
+              <button key={d.name} onClick={() => onSelectService(d.name)}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all hover:bg-white/5 text-left"
+                style={{ border: '1px solid rgba(255,255,255,0.05)' }}>
+                <span className="text-xs font-black w-5 text-center" style={{ color }}>{grade}</span>
+                <span className="text-sm text-zinc-200 flex-1 truncate">{d.name}</span>
+                <span className="text-xs text-zinc-500 shrink-0">{d.team}</span>
+                <div className="w-20 h-1.5 rounded-full overflow-hidden shrink-0" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                  <div className="h-full rounded-full" style={{ width: `${d.score}%`, background: color }} />
+                </div>
+                <span className="text-xs font-mono w-8 text-right shrink-0" style={{ color }}>{d.score}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MiniStat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="text-center p-3 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+    <div className="text-center px-5 py-3 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', minWidth: '100px' }}>
       <div className="text-2xl font-bold text-zinc-100">{value.toLocaleString()}</div>
       <div className="text-xs text-zinc-500 mt-0.5">{label}</div>
     </div>
@@ -399,7 +548,7 @@ function MiniStat({ label, value }: { label: string; value: number }) {
 
 function MiniStatText({ label, value }: { label: string; value: string }) {
   return (
-    <div className="text-center p-3 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+    <div className="text-center px-5 py-3 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', minWidth: '100px' }}>
       <div className="text-2xl font-bold text-amber-400">{value}</div>
       <div className="text-xs text-zinc-500 mt-0.5">{label}</div>
     </div>
@@ -461,9 +610,9 @@ function TeamDonut({ data, total, onSelectTeam, selectedTeam }: {
   }, []);
 
   return (
-    <div className="space-y-4">
+    <div>
       <div className="flex justify-center">
-        <div className="relative w-[180px] h-[180px] shrink-0">
+        <div className="relative w-[200px] h-[200px] shrink-0">
           <svg viewBox="0 0 200 200" className="w-full h-full -rotate-90" style={{ cursor: 'pointer' }}>
             <circle cx={cx} cy={cy} r={radius} fill="transparent" stroke="rgba(255,255,255,0.03)" strokeWidth={strokeWidth} />
             {data.map(([team, count], i) => {
@@ -513,28 +662,6 @@ function TeamDonut({ data, total, onSelectTeam, selectedTeam }: {
             )}
           </div>
         </div>
-      </div>
-      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-        {data.map(([team, count], i) => {
-          const color      = TEAM_COLORS[i % TEAM_COLORS.length];
-          const isSelected = selectedTeam === team;
-          return (
-            <button key={team}
-              onClick={() => onSelectTeam(team, color)}
-              className="flex items-center gap-2 transition-all text-left rounded px-1 py-0.5 hover:bg-white/3"
-              style={{ opacity: selectedTeam && !isSelected ? 0.4 : 1 }}
-            >
-              <span className="w-2 h-2 rounded-full shrink-0 transition-transform"
-                style={{ background: color, transform: isSelected ? 'scale(1.4)' : 'scale(1)' }} />
-              <span className="text-xs truncate transition-colors"
-                style={{ color: isSelected ? '#e2e8f0' : '#a1a1aa' }}
-                title={team}>
-                {team === 'unknown' ? <span className="text-red-400">unowned</span> : team}
-              </span>
-              <span className="text-xs text-zinc-600 font-mono ml-auto">{count}</span>
-            </button>
-          );
-        })}
       </div>
     </div>
   );

@@ -34,8 +34,16 @@ interface ServiceHeaderProps {
   name: string;
 }
 
+const ENV_STYLES: Record<string, { bg: string; text: string; dot: string }> = {
+  production: { bg: 'rgba(239,68,68,0.15)',  text: '#fca5a5', dot: '#ef4444' },
+  staging:    { bg: 'rgba(234,179,8,0.15)',  text: '#fde047', dot: '#eab308' },
+  qa:         { bg: 'rgba(249,115,22,0.15)', text: '#fdba74', dot: '#f97316' },
+  dev:        { bg: 'rgba(34,197,94,0.15)',  text: '#86efac', dot: '#22c55e' },
+  unknown:    { bg: 'rgba(113,113,122,0.15)',text: '#a1a1aa', dot: '#71717a' },
+};
+
 export default function ServiceHeader({ name }: ServiceHeaderProps) {
-  const [data, setData] = useState<ManifestData | null>(null);
+  const [data, setData]       = useState<ManifestData | null>(null);
   const [showYaml, setShowYaml] = useState(false);
 
   useEffect(() => {
@@ -47,59 +55,127 @@ export default function ServiceHeader({ name }: ServiceHeaderProps) {
 
   if (!data) return null;
 
-  const m = data.metadata;
+  const m   = data.metadata;
+  const env = m.environment;
+  const envStyle = env ? (ENV_STYLES[env] || ENV_STYLES.unknown) : null;
+
+  // Derive image tag
+  const imageTag = m.image?.split(':')[1] || null;
+  const isLatest = imageTag === 'latest';
 
   return (
     <>
-      <div className="glass-panel p-4">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-3">
-            <h2 className="text-xl font-bold text-zinc-100">{data.name}</h2>
+      <div className="glass-panel p-5">
+        {/* Top row — name + badges + actions */}
+        <div className="flex items-start justify-between gap-4 mb-5">
+          <div className="flex items-center gap-3 flex-wrap min-w-0">
+            {/* Env dot */}
+            {envStyle && (
+              <span className="w-3 h-3 rounded-full shrink-0 mt-0.5" style={{ background: envStyle.dot, boxShadow: `0 0 8px ${envStyle.dot}60` }} />
+            )}
+            <h2 className="text-2xl font-black text-zinc-100 tracking-tight">{data.name}</h2>
+
+            {/* Team badge */}
             {m.ownerTeam ? (
-              <span className="text-sm px-2 py-1 rounded-full bg-blue-500/20 text-blue-300">
+              <span className="text-xs px-2.5 py-1 rounded-full font-medium"
+                style={{ background: 'rgba(59,130,246,0.15)', color: '#93c5fd', border: '1px solid rgba(59,130,246,0.25)' }}>
                 {m.ownerTeam}
               </span>
             ) : (
-              <span className="missing-team">no owner team</span>
+              <span className="text-xs px-2.5 py-1 rounded-full font-medium"
+                style={{ background: 'rgba(239,68,68,0.12)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.2)' }}>
+                no owner
+              </span>
             )}
-            {m.environment && <EnvBadge env={m.environment} />}
+
+            {/* Env badge */}
+            {env && envStyle && (
+              <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium"
+                style={{ background: envStyle.bg, color: envStyle.text, border: `1px solid ${envStyle.dot}40` }}>
+                {env}
+              </span>
+            )}
+
+            {/* Framework / tech */}
+            {m.framework && (
+              <span className="text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">{m.framework}</span>
+            )}
+            {m.tech && (
+              <span className="text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">{m.tech}</span>
+            )}
           </div>
-          <div className="flex items-center gap-2">
-            {m.framework && <span className="text-xs px-2 py-0.5 bg-zinc-800 rounded text-zinc-500">{m.framework}</span>}
-            {m.tech && <span className="text-xs px-2 py-0.5 bg-zinc-800 rounded text-zinc-500">{m.tech}</span>}
+
+          {/* Actions */}
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => setShowYaml(true)}
               className="text-xs px-3 py-1.5 rounded-lg transition-all font-mono"
-              style={{
-                color: '#22d3ee',
-                background: 'rgba(34,211,238,0.08)',
-                border: '1px solid rgba(34,211,238,0.15)',
-              }}
+              style={{ color: '#22d3ee', background: 'rgba(34,211,238,0.08)', border: '1px solid rgba(34,211,238,0.15)' }}
             >
-              {'<'}/{'>'} View YAML
+              {'<'}/{'>'} YAML
             </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-          <Stat label="Replicas"  value={m.replicas?.toString() || '?'} warn={m.replicas === 1} />
-          <Stat label="CPU Req"   value={m.cpuRequest || 'none'} />
-          <Stat label="Mem Req"   value={m.memoryRequest || 'none'} />
-          <Stat label="CPU Limit" value={m.cpuLimit || 'none'} warn={!m.cpuLimit} />
-          <Stat label="Liveness"  value={m.hasLivenessProbe ? 'Yes' : 'No'} warn={!m.hasLivenessProbe} />
-          <Stat label="Readiness" value={m.hasReadinessProbe ? 'Yes' : 'No'} warn={!m.hasReadinessProbe} />
+        {/* Stats row — single line like the reference */}
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+          <StatCard
+            label="REPLICAS"
+            value={m.replicas?.toString() || '?'}
+            warn={m.replicas === 1}
+            warnMsg={m.replicas === 1 ? 'SPOF' : undefined}
+          />
+          <StatCard label="CPU REQ"   value={m.cpuRequest   || 'none'} />
+          <StatCard label="MEM REQ"   value={m.memoryRequest || 'none'} />
+          <StatCard
+            label="CPU LIMIT"
+            value={m.cpuLimit || 'not set'}
+            warn={!m.cpuLimit}
+            warnMsg={!m.cpuLimit ? 'unset' : undefined}
+          />
+          <StatCard
+            label="LIVENESS"
+            value={m.hasLivenessProbe ? 'Yes' : 'No'}
+            warn={!m.hasLivenessProbe}
+            good={m.hasLivenessProbe}
+          />
+          <StatCard
+            label="READINESS"
+            value={m.hasReadinessProbe ? 'Yes' : 'No'}
+            warn={!m.hasReadinessProbe}
+            good={m.hasReadinessProbe}
+          />
         </div>
 
+        {/* Image tag row */}
+        {m.image && (
+          <div className="mt-3 pt-3 border-t border-zinc-800/60 flex items-center gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-600">Image</span>
+            <span className="text-xs font-mono text-zinc-400 truncate">{m.image}</span>
+            {imageTag && (
+              <span
+                className="text-[10px] px-1.5 py-0.5 rounded font-mono ml-auto shrink-0"
+                style={{
+                  background: isLatest ? 'rgba(239,68,68,0.15)' : 'rgba(34,197,94,0.12)',
+                  color:      isLatest ? '#fca5a5' : '#86efac',
+                  border:     `1px solid ${isLatest ? 'rgba(239,68,68,0.3)' : 'rgba(34,197,94,0.25)'}`,
+                }}
+              >
+                {isLatest ? '⚠ :latest' : `✓ ${imageTag}`}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Family */}
         {data.family.length > 1 && (
-          <div className="mt-3 pt-3 border-t border-zinc-800">
-            <span className="text-xs text-zinc-500">Family: </span>
-            <div className="flex flex-wrap gap-1.5 mt-1">
+          <div className="mt-3 pt-3 border-t border-zinc-800/60">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 mr-2">Family</span>
+            <div className="flex flex-wrap gap-1.5 mt-1.5">
               {data.family.map(f => (
                 <span
                   key={f.name}
-                  className={`text-xs px-2 py-0.5 rounded ${
-                    f.name === name ? 'bg-blue-500/30 text-blue-200' : 'bg-zinc-800 text-zinc-400'
-                  }`}
+                  className={`text-xs px-2 py-0.5 rounded ${f.name === name ? 'bg-blue-500/30 text-blue-200' : 'bg-zinc-800 text-zinc-400'}`}
                 >
                   {f.name} (<SlotMachine value={f.replicas.toString()} />r)
                 </span>
@@ -109,41 +185,31 @@ export default function ServiceHeader({ name }: ServiceHeaderProps) {
         )}
       </div>
 
-      {showYaml && (
-        <ManifestViewer name={name} onClose={() => setShowYaml(false)} />
-      )}
+      {showYaml && <ManifestViewer name={name} onClose={() => setShowYaml(false)} />}
     </>
   );
 }
 
-const ENV_STYLES: Record<string, { bg: string; text: string; dot: string }> = {
-  production: { bg: 'rgba(239,68,68,0.15)',  text: '#fca5a5', dot: '#ef4444' },
-  staging:    { bg: 'rgba(234,179,8,0.15)',  text: '#fde047', dot: '#eab308' },
-  qa:         { bg: 'rgba(249,115,22,0.15)', text: '#fdba74', dot: '#f97316' },
-  dev:        { bg: 'rgba(34,197,94,0.15)',  text: '#86efac', dot: '#22c55e' },
-  unknown:    { bg: 'rgba(113,113,122,0.15)',text: '#a1a1aa', dot: '#71717a' },
-};
+function StatCard({ label, value, warn, good, warnMsg }: {
+  label: string;
+  value: string;
+  warn?: boolean;
+  good?: boolean;
+  warnMsg?: string;
+}) {
+  const color = good ? '#4ade80' : warn ? '#fbbf24' : '#e2e8f0';
+  const bg    = good ? 'rgba(34,197,94,0.06)' : warn ? 'rgba(251,191,36,0.06)' : 'rgba(255,255,255,0.03)';
+  const border = good ? 'rgba(34,197,94,0.15)' : warn ? 'rgba(251,191,36,0.15)' : 'rgba(255,255,255,0.06)';
 
-function EnvBadge({ env }: { env: string }) {
-  const s = ENV_STYLES[env] || ENV_STYLES.unknown;
   return (
-    <span
-      className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium"
-      style={{ background: s.bg, color: s.text, border: `1px solid ${s.dot}40` }}
-    >
-      <span className="w-1.5 h-1.5 rounded-full" style={{ background: s.dot }} />
-      {env}
-    </span>
-  );
-}
-
-function Stat({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
-  return (
-    <div className="glass-panel px-4 py-3 text-center">
-      <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-1">{label}</div>
-      <div className={`text-2xl font-mono font-black ${warn ? 'text-amber-400' : 'text-cyan-300'}`}>
+    <div className="px-3 py-2.5 rounded-lg text-center" style={{ background: bg, border: `1px solid ${border}` }}>
+      <div className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-1">{label}</div>
+      <div className="text-base font-mono font-black truncate" style={{ color }}>
         <SlotMachine value={value} />
       </div>
+      {warnMsg && (
+        <div className="text-[9px] mt-0.5" style={{ color: `${color}80` }}>{warnMsg}</div>
+      )}
     </div>
   );
 }
