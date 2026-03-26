@@ -121,7 +121,7 @@ ${ctx}`,
   ];
 }
 
-function streamAnthropic(prompt: string, _maxTokens = 800): ReadableStream<Uint8Array> {
+function streamAnthropic(prompt: string): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
 
   return new ReadableStream({

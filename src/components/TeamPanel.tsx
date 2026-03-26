@@ -20,7 +20,7 @@ interface TeamPanelProps {
 export default function TeamPanel({ team, color, onSelectService, onClose, inline = false }: TeamPanelProps) {
   const [services, setServices] = useState<ServiceItem[]>([]);
   const [loading, setLoading]   = useState(true);
-  const [search, setSearch]     = useState('');
+  const [search] = useState('');
 
   useEffect(() => {
     fetch('/api/services')

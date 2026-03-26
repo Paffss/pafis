@@ -9,6 +9,8 @@ FROM node:20-bookworm-slim AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+ARG APP_VERSION=1.1.0
+ENV APP_VERSION=$APP_VERSION
 RUN npm run build
 
 FROM node:20-bookworm-slim AS runtime

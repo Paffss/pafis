@@ -47,11 +47,12 @@ export default function ImpactPanel({ name, onSelectService }: ImpactPanelProps)
   const [tab, setTab]         = useState<'affected' | 'depends'>('affected');
 
   useEffect(() => {
-    setLoading(true);
+    let cancelled = false;
     fetch(`/api/impact/${encodeURIComponent(name)}`)
       .then(r => r.json())
-      .then(d => { setData(d); setLoading(false); })
-      .catch(() => setLoading(false));
+      .then(d => { if (!cancelled) { setData(d); setLoading(false); } })
+      .catch(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [name]);
 
   if (loading) return (

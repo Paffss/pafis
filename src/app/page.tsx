@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import Image from 'next/image';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import SearchBar from '@/components/SearchBar';
@@ -10,7 +10,8 @@ import AnalysisPanel from '@/components/AnalysisPanel';
 import CostPanel from '@/components/CostPanel';
 import ImpactPanel from '@/components/ImpactPanel';
 import Dashboard from '@/components/Dashboard';
-import DataSourceBanner from '@/components/DataSourceBanner';
+import GuideModal from '@/components/GuideModal';
+import { AnimatedPanel } from '@/components/Animated';
 
 export default function Home() {
   return (
@@ -25,6 +26,24 @@ function HomeContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const selectedService = searchParams.get('service');
+
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [showNudge, setShowNudge] = useState(false);
+
+  // First-run nudge after 1.5s if user hasn't seen the guide
+  useEffect(() => {
+    const seen = localStorage.getItem('pafis_guide_seen');
+    if (!seen) {
+      const t = setTimeout(() => setShowNudge(true), 1500);
+      return () => clearTimeout(t);
+    }
+  }, []);
+
+  const openGuide = () => {
+    setGuideOpen(true);
+    setShowNudge(false);
+    localStorage.setItem('pafis_guide_seen', '1');
+  };
 
   const setSelectedService = (service: string | null) => {
     const nextParams = new URLSearchParams(searchParams.toString());
@@ -104,8 +123,20 @@ function HomeContent() {
             </svg>
           </a>
 
+          {/* ? Guide button */}
+          <button
+            onClick={openGuide}
+            className="w-7 h-7 flex items-center justify-center rounded-full text-xs font-bold transition-all shrink-0"
+            style={{ color: '#22d3ee', background: 'rgba(34,211,238,0.1)', border: '1px solid rgba(34,211,238,0.2)' }}
+            title="Mission Briefing — how PAFIS works"
+          >
+            ?
+          </button>
+
           {/* Version */}
-          <span className="text-[10px] font-mono text-zinc-600 shrink-0">v1.1.0</span>
+          <span className="text-[10px] font-mono text-zinc-600 shrink-0">
+            v{process.env.NEXT_PUBLIC_APP_VERSION || '1.1.0'}
+          </span>
 
           {/* Health indicator */}
           <a href="/health" target="_blank"
@@ -118,8 +149,24 @@ function HomeContent() {
         </div>
       </header>
 
-      {/* Data source disclaimer */}
-      <DataSourceBanner mode={process.env.NEXT_PUBLIC_DATA_MODE as 'sample' | 'cluster' | 'auto' || 'auto'} />
+      {/* Guide modal */}
+      <GuideModal open={guideOpen} onClose={() => setGuideOpen(false)} />
+
+      {/* First-run nudge */}
+      {showNudge && (
+        <div
+          className='fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl cursor-pointer'
+          style={{ background: 'rgba(6,18,32,0.95)', border: '1px solid rgba(34,211,238,0.3)', backdropFilter: 'blur(16px)' }}
+          onClick={openGuide}
+        >
+          <span className='text-xl'>⚡</span>
+          <div>
+            <p className='text-xs font-bold text-zinc-100'>New to PAFIS?</p>
+            <p className='text-xs text-zinc-400'>Check the Mission Briefing →</p>
+          </div>
+          <button onClick={e => { e.stopPropagation(); setShowNudge(false); }} className='text-zinc-500 hover:text-zinc-300 ml-1'>✕</button>
+        </div>
+      )}
 
       {/* Main content */}
       <main className="relative z-10 max-w-[1600px] mx-auto px-6 py-6">
@@ -144,14 +191,26 @@ function ServiceView({ name, onBack, onSelectService }: { name: string; onBack: 
         <span className="group-hover:-translate-x-0.5 transition-transform">←</span>
         <span>Back to Dashboard</span>
       </button>
-      <ServiceHeader name={name} />
-      <ImpactPanel name={name} onSelectService={name => onSelectService?.(name)} />
-      <ServiceDiagram name={name} />
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="min-h-[400px]">
+
+      <AnimatedPanel delay={0}>
+        <ServiceHeader name={name} />
+      </AnimatedPanel>
+
+      <AnimatedPanel delay={0.05}>
+        <ImpactPanel name={name} onSelectService={name => onSelectService?.(name)} />
+      </AnimatedPanel>
+
+      <AnimatedPanel delay={0.1}>
+        <ServiceDiagram name={name} />
+      </AnimatedPanel>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <AnimatedPanel delay={0.15} className="lg:col-span-2 min-h-[400px]">
           <AnalysisPanel name={name} />
-        </div>
-        <CostPanel name={name} />
+        </AnimatedPanel>
+        <AnimatedPanel delay={0.2}>
+          <CostPanel name={name} />
+        </AnimatedPanel>
       </div>
     </div>
   );
