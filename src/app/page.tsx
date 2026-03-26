@@ -204,8 +204,8 @@ function ServiceView({ name, onBack, onSelectService }: { name: string; onBack: 
         <ServiceDiagram name={name} />
       </AnimatedPanel>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <AnimatedPanel delay={0.15} className="lg:col-span-2 min-h-[400px]">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <AnimatedPanel delay={0.15} className="min-h-[400px]">
           <AnalysisPanel name={name} />
         </AnimatedPanel>
         <AnimatedPanel delay={0.2}>

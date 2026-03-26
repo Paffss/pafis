@@ -77,7 +77,7 @@ export default function SearchBar({ onSelect, selected }: SearchBarProps) {
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
-  const search = useCallback(async (q: string) => {
+  const search = useCallback(async (q: string): Promise<void> => {
     if (!q.trim()) { setResults([]); setIsOpen(false); return; }
     try {
       const res  = await fetch(`/api/services?q=${encodeURIComponent(q)}`);
@@ -101,11 +101,11 @@ export default function SearchBar({ onSelect, selected }: SearchBarProps) {
   // Add a token to the query, avoiding duplicates of the same filter type
   const addToken = (token: string) => {
     const [key] = token.split(':');
-    // Remove existing token of the same type
     const existing = query.split(' ').filter(t => !t.startsWith(`${key}:`)).join(' ').trim();
     const newQuery = existing ? `${existing} ${token} ` : `${token} `;
     setQuery(newQuery);
-    search(newQuery);
+    setShowBuilder(false);  // close builder so dropdown is visible
+    search(newQuery).then(() => setIsOpen(true));
     inputRef.current?.focus();
   };
 
@@ -114,7 +114,12 @@ export default function SearchBar({ onSelect, selected }: SearchBarProps) {
     const [key] = token.split(':');
     const newQuery = query.split(' ').filter(t => !t.startsWith(`${key}:`)).join(' ').trim();
     setQuery(newQuery);
-    search(newQuery);
+    if (newQuery.trim()) {
+      search(newQuery).then(() => setIsOpen(true));
+    } else {
+      setResults([]);
+      setIsOpen(false);
+    }
   };
 
   const clearAll = () => { setQuery(''); setResults([]); setIsOpen(false); };
@@ -323,7 +328,7 @@ export default function SearchBar({ onSelect, selected }: SearchBarProps) {
                 'team:ops risk:single',
               ].map(ex => (
                 <button key={ex}
-                  onClick={() => { setQuery(ex + ' '); search(ex); setShowBuilder(false); }}
+                  onClick={() => { const q = ex + ' '; setQuery(q); setShowBuilder(false); search(q).then(() => setIsOpen(true)); }}
                   className="text-[11px] px-2.5 py-1 rounded-lg font-mono transition-all hover:bg-white/8"
                   style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#71717a' }}
                 >
