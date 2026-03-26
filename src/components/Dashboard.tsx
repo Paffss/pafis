@@ -419,13 +419,16 @@ function EnvironmentPanel({ distribution, selected, onSelect }: {
 
 // ── Shared primitives ──────────────────────────────────────────────────────────
 // ── OPS Score Leaderboard ─────────────────────────────────────────────────────
+// Must mirror checks in /api/ops-score/[name]/route.ts — 100 pts total
 function calcOpsScore(d: Deployment): number {
   let score = 0;
-  if (!d.noLimits)        score += 30; // resource limits
-  if (!d.noLivenessProbe) score += 20; // liveness probe
-  if (!d.latestTag)       score += 20; // semver tag
+  if (!d.noLimits)        score += 25; // resource limits
+  if (!d.noLivenessProbe) score += 15; // liveness probe
+  // readiness probe: 10pts — not in Deployment interface, skip
   if (!d.singleReplica)   score += 15; // HA
-  if (!d.noOwnerTeam)     score += 15; // owner team
+  // service monitor: 15pts — not in Deployment interface, skip
+  if (!d.noOwnerTeam)     score += 10; // owner team
+  if (!d.latestTag)       score += 10; // semver tag
   return score;
 }
 
@@ -442,7 +445,8 @@ function OpsLeaderboard({ deployments, onSelectService, onSelectTeam }: {
   onSelectService: (name: string) => void;
   onSelectTeam?: (team: string) => void;
 }) {
-  const [tab, setTab] = useState<'services' | 'teams'>('teams');
+  const [tab, setTab]             = useState<'services' | 'teams'>('teams');
+  const [expandedTeam, setExpandedTeam] = useState<string | null>(null);
   const MAX = 100;
 
   // Team scores — average across team services
@@ -493,22 +497,49 @@ function OpsLeaderboard({ deployments, onSelectService, onSelectTeam }: {
           {teamScores.map((t, i) => {
             const { grade, color } = getGrade(t.score);
             return (
-              <button key={t.team} onClick={() => onSelectTeam?.(t.team)} className="flex items-center gap-3 w-full text-left hover:bg-white/3 rounded-lg px-1 py-0.5 transition-all">
-                <span className="text-base w-6 shrink-0">{medals[i] || <span className="text-zinc-600 text-xs font-mono">{i + 1}</span>}</span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-medium text-zinc-200 truncate">{t.team}</span>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-xs text-zinc-500">{t.count} services</span>
-                      <span className="text-xs font-bold w-12 text-right" style={{ color }}>{t.score} / {MAX}</span>
-                      <span className="text-xs font-black w-5 text-center" style={{ color }}>{grade}</span>
+              <div key={t.team}>
+                <button
+                  onClick={() => setExpandedTeam(prev => prev === t.team ? null : t.team)}
+                  className="flex items-center gap-3 w-full text-left hover:bg-white/5 rounded-lg px-2 py-1.5 transition-all"
+                  style={{ background: expandedTeam === t.team ? 'rgba(255,255,255,0.04)' : 'transparent' }}
+                >
+                  <span className="text-base w-6 shrink-0">{medals[i] || <span className="text-zinc-600 text-xs font-mono">{i + 1}</span>}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium text-zinc-200 truncate">{t.team}</span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-xs text-zinc-500">{t.count} services</span>
+                        <span className="text-xs font-bold w-12 text-right" style={{ color }}>{t.score} / {MAX}</span>
+                        <span className="text-xs font-black w-5 text-center" style={{ color }}>{grade}</span>
+                        <span className="text-zinc-500 text-xs">{expandedTeam === t.team ? '▲' : '▼'}</span>
+                      </div>
+                    </div>
+                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                      <div className="h-full rounded-full transition-all" style={{ width: `${t.score}%`, background: color }} />
                     </div>
                   </div>
-                  <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                    <div className="h-full rounded-full transition-all" style={{ width: `${t.score}%`, background: color }} />
+                </button>
+                {/* Inline team service list */}
+                {expandedTeam === t.team && (
+                  <div className="mt-1 mb-2 ml-9 grid grid-cols-2 gap-1.5">
+                    {deployments
+                      .filter(d => d.team === t.team)
+                      .map(d => {
+                        const s = calcOpsScore(d);
+                        const { grade: dg, color: dc } = getGrade(s);
+                        return (
+                          <button key={d.name} onClick={() => onSelectService(d.name)}
+                            className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-left hover:bg-white/5 transition-all"
+                            style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+                            <span className="text-[10px] font-black w-4 shrink-0" style={{ color: dc }}>{dg}</span>
+                            <span className="text-xs text-zinc-300 truncate flex-1">{d.name}</span>
+                            <span className="text-[10px] font-mono shrink-0" style={{ color: dc }}>{s}</span>
+                          </button>
+                        );
+                      })}
                   </div>
-                </div>
-              </button>
+                )}
+              </div>
             );
           })}
         </div>

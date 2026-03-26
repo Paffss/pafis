@@ -197,14 +197,14 @@ function StatCard({ label, value, warn, good, warnMsg }: {
   good?: boolean;
   warnMsg?: string;
 }) {
-  const color = good ? '#4ade80' : warn ? '#fbbf24' : '#e2e8f0';
-  const bg    = good ? 'rgba(34,197,94,0.06)' : warn ? 'rgba(251,191,36,0.06)' : 'rgba(255,255,255,0.03)';
-  const border = good ? 'rgba(34,197,94,0.15)' : warn ? 'rgba(251,191,36,0.15)' : 'rgba(255,255,255,0.06)';
+  const color  = good ? '#4ade80' : warn ? '#fbbf24' : '#f1f5f9';
+  const bg     = good ? 'rgba(34,197,94,0.08)' : warn ? 'rgba(251,191,36,0.08)' : 'rgba(255,255,255,0.04)';
+  const border = good ? 'rgba(34,197,94,0.2)'  : warn ? 'rgba(251,191,36,0.2)'  : 'rgba(255,255,255,0.08)';
 
   return (
-    <div className="px-3 py-2.5 rounded-lg text-center" style={{ background: bg, border: `1px solid ${border}` }}>
-      <div className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-1">{label}</div>
-      <div className="text-base font-mono font-black truncate" style={{ color }}>
+    <div className="px-3 py-3 rounded-xl text-center" style={{ background: bg, border: `1px solid ${border}` }}>
+      <div className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-1.5">{label}</div>
+      <div className="text-xl font-mono font-black" style={{ color }}>
         <SlotMachine value={value} />
       </div>
       {warnMsg && (

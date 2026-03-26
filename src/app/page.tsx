@@ -1,7 +1,6 @@
 'use client';
 
 import { Suspense, useState, useEffect } from 'react';
-import Image from 'next/image';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import SearchBar from '@/components/SearchBar';
 import ServiceDiagram from '@/components/ServiceDiagram';
@@ -12,6 +11,8 @@ import ImpactPanel from '@/components/ImpactPanel';
 import Dashboard from '@/components/Dashboard';
 import GuideModal from '@/components/GuideModal';
 import { AnimatedPanel } from '@/components/Animated';
+import OpsScorePanel from '@/components/OpsScorePanel';
+import LabelCompliancePanel from '@/components/LabelCompliancePanel';
 
 export default function Home() {
   return (
@@ -79,10 +80,8 @@ function HomeContent() {
             onClick={() => setSelectedService(null)}
             className="flex items-center gap-2.5 shrink-0 group"
           >
-            <Image src="/logo.svg" alt="PAFIS" width={36} height={36}
-              className="object-contain group-hover:scale-110 transition-transform drop-shadow-[0_0_12px_rgba(34,211,238,0.5)]" />
             <div className="flex flex-col leading-none">
-              <span className="text-base font-black tracking-tight text-zinc-100">PAFIS</span>
+              <span className="text-lg font-black tracking-tight text-zinc-100">PAFIS</span>
               <span className="text-[9px] font-mono text-cyan-400/50 tracking-widest">PLATFORM INTEL</span>
             </div>
           </button>
@@ -126,7 +125,7 @@ function HomeContent() {
 
           {/* Version */}
           <span className="text-[10px] font-mono text-zinc-600 shrink-0">
-            v{process.env.NEXT_PUBLIC_APP_VERSION || '1.1.0'}
+            v{process.env.NEXT_PUBLIC_APP_VERSION || '1.2.6'}
           </span>
 
           {/* Health indicator */}
@@ -183,23 +182,34 @@ function ServiceView({ name, onBack, onSelectService }: { name: string; onBack: 
         <span>Back to Dashboard</span>
       </button>
 
-      <AnimatedPanel delay={0}>
-        <ServiceHeader name={name} />
-      </AnimatedPanel>
+      {/* Header row — left: ServiceHeader + LabelCompliance stacked, right: OPS Score */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 flex flex-col gap-4">
+          <AnimatedPanel delay={0}>
+            <ServiceHeader name={name} />
+          </AnimatedPanel>
+          <AnimatedPanel delay={0.05}>
+            <LabelCompliancePanel name={name} />
+          </AnimatedPanel>
+        </div>
+        <AnimatedPanel delay={0.05}>
+          <OpsScorePanel name={name} />
+        </AnimatedPanel>
+      </div>
 
-      <AnimatedPanel delay={0.05}>
+      <AnimatedPanel delay={0.1}>
         <ImpactPanel name={name} onSelectService={name => onSelectService?.(name)} />
       </AnimatedPanel>
 
-      <AnimatedPanel delay={0.1}>
+      <AnimatedPanel delay={0.15}>
         <ServiceDiagram name={name} />
       </AnimatedPanel>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <AnimatedPanel delay={0.15} className="min-h-[400px]">
+        <AnimatedPanel delay={0.2} className="min-h-[400px]">
           <AnalysisPanel name={name} />
         </AnimatedPanel>
-        <AnimatedPanel delay={0.2}>
+        <AnimatedPanel delay={0.25}>
           <CostPanel name={name} />
         </AnimatedPanel>
       </div>
