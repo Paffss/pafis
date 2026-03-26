@@ -234,6 +234,91 @@ export function getFilterOptions(): { teams: string[]; environments: string[] } 
   return { teams, environments: envs };
 }
 
+export interface ImpactNode {
+  name: string;
+  team: string;
+  environment: string;
+  hops: number; // 1 = direct caller, 2 = indirect, etc.
+}
+
+export interface ImpactAnalysis {
+  // Services this service calls (what it depends on)
+  dependsOn: ImpactNode[];
+  // Services that call this service (what breaks if it goes down)
+  affectedBy: ImpactNode[];
+  // Total transitive blast radius
+  criticalityScore: number;
+  // Direct callers count
+  directCallers: number;
+}
+
+export function getImpactAnalysis(name: string): ImpactAnalysis {
+  const graph = getGraph();
+  const startId = `deploy:${name}`;
+  if (!graph.nodes.has(startId)) {
+    return { dependsOn: [], affectedBy: [], criticalityScore: 0, directCallers: 0 };
+  }
+
+  // ── What this service depends on (forward: network-allows edges) ──────────
+  const dependsOn: ImpactNode[] = [];
+  const visitedFwd = new Set<string>([startId]);
+  const fwdQueue: [string, number][] = [];
+
+  // Direct network targets
+  for (const targetId of graph.adjacency.get(startId) || []) {
+    const edge = graph.edges.find(e => e.source === startId && e.target === targetId && e.type === "network-allows");
+    if (!edge) continue;
+    const target = graph.nodes.get(targetId);
+    if (!target || target.type !== "deployment" || visitedFwd.has(targetId)) continue;
+    visitedFwd.add(targetId);
+    fwdQueue.push([targetId, 1]);
+    dependsOn.push({
+      name:        target.name,
+      team:        target.metadata.ownerTeam || "unknown",
+      environment: target.metadata.environment || "unknown",
+      hops:        1,
+    });
+  }
+
+  // ── Who depends on THIS service (reverse: callers) ────────────────────────
+  const affectedBy: ImpactNode[] = [];
+  const visitedRev = new Set<string>([startId]);
+  const revQueue: [string, number][] = [[startId, 0]];
+
+  while (revQueue.length > 0) {
+    const [nodeId, hops] = revQueue.shift()!;
+    for (const sourceId of graph.reverseAdjacency.get(nodeId) || []) {
+      if (visitedRev.has(sourceId)) continue;
+      const sourceNode = graph.nodes.get(sourceId);
+      if (!sourceNode || sourceNode.type !== "deployment") continue;
+      // Only follow network-allows edges
+      const hasNetEdge = graph.edges.some(
+        e => e.source === sourceId && e.target === nodeId && e.type === "network-allows"
+      );
+      if (!hasNetEdge) continue;
+      visitedRev.add(sourceId);
+      const currentHop = hops + 1;
+      affectedBy.push({
+        name:        sourceNode.name,
+        team:        sourceNode.metadata.ownerTeam || "unknown",
+        environment: sourceNode.metadata.environment || "unknown",
+        hops:        currentHop,
+      });
+      if (currentHop < 4) revQueue.push([sourceId, currentHop]);
+    }
+  }
+
+  // Sort by hops then name
+  affectedBy.sort((a, b) => a.hops - b.hops || a.name.localeCompare(b.name));
+  dependsOn.sort((a, b) => a.hops - b.hops || a.name.localeCompare(b.name));
+
+  const directCallers = affectedBy.filter(n => n.hops === 1).length;
+  // Score: direct callers worth 10pts each, indirect worth 3pts
+  const criticalityScore = affectedBy.reduce((sum, n) => sum + (n.hops === 1 ? 10 : n.hops === 2 ? 5 : 3), 0);
+
+  return { dependsOn, affectedBy, criticalityScore, directCallers };
+}
+
 export function getAllDeployments() {
   const graph = getGraph();
   const results: GraphNode[] = [];

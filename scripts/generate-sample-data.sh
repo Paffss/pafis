@@ -203,21 +203,21 @@ YAML
 
 # api-gateway — 3 replicas, good config
 write_deploy "api-gateway" "platform" 3 "200m" "500m" "256Mi" "512Mi" "myrepo/api-gateway:v2.3.1" "true" "true" \
-  "auth-service:auth-service:8080,user-service:user-service:8080,billing-service:billing-service:8080" "production"
+  "auth-service:auth-service:8080,user-service:user-service:8080,billing-service:billing-service:8080,payment-service:payment-service:8080,fraud-service:fraud-service:8080" "production"
 write_deploy "api-gateway-consumer" "platform" 2 "100m" "300m" "128Mi" "256Mi" "myrepo/api-gateway:v2.3.1" "true" "true" "" "production"
 
 # auth
 write_deploy "auth-service" "platform" 2 "150m" "400m" "256Mi" "512Mi" "myrepo/auth-service:v1.8.0" "true" "true" \
-  "redis:redis:6379,user-service:user-service:8080" "production"
+  "user-service:user-service:8080,token-service:token-service:8080" "production"
 write_deploy "token-service" "platform" 2 "100m" "250m" "128Mi" "256Mi" "myrepo/token-service:v1.2.0" "true" "true" \
-  "redis:redis:6379" "production"
+  "user-service:user-service:8080" "production"
 
 # users
 write_deploy "user-service" "backend" 3 "200m" "500m" "384Mi" "768Mi" "myrepo/user-service:v4.1.0" "true" "true" \
   "notification-service:notification-service:8080,audit-service:audit-service:8080" "staging"
 write_deploy "user-service-worker" "backend" 2 "100m" "300m" "128Mi" "256Mi" "myrepo/user-service:v4.1.0" "true" "true" "" "staging"
 write_deploy "profile-service" "backend" 2 "100m" "250m" "128Mi" "256Mi" "myrepo/profile-service:v2.0.0" "true" "true" \
-  "user-service:user-service:8080" "staging"
+  "user-service:user-service:8080,notification-service:notification-service:8080" "staging"
 
 # notifications
 write_deploy "notification-service" "platform" 1 "100m" "250m" "128Mi" "256Mi" "myrepo/notification-service:v3.0.0" "true" "true" \
@@ -228,17 +228,17 @@ write_deploy "sms-service" "platform" 1 "50m" "150m" "64Mi" "128Mi" "myrepo/sms-
 
 # billing
 write_deploy "billing-service" "billing" 2 "200m" "500m" "384Mi" "768Mi" "myrepo/billing-service:v2.1.0" "true" "true" \
-  "payment-service:payment-service:8080,invoice-service:invoice-service:8080" "production"
+  "payment-service:payment-service:8080,invoice-service:invoice-service:8080,user-service:user-service:8080" "production"
 write_deploy "invoice-service" "billing" 2 "150m" "400m" "256Mi" "512Mi" "myrepo/invoice-service:v1.3.0" "true" "true" \
-  "notification-service:notification-service:8080" "production"
+  "notification-service:notification-service:8080,user-service:user-service:8080" "production"
 write_deploy "subscription-service" "billing" 2 "150m" "" "256Mi" "" "myrepo/subscription-service:v1.0.0" "true" "true" \
-  "billing-service:billing-service:8080,kafka:kafka:9092" "production"
+  "billing-service:billing-service:8080,user-service:user-service:8080,notification-service:notification-service:8080" "production"
 
 # analytics
 write_deploy "analytics-service" "data" 2 "500m" "2000m" "1Gi" "2Gi" "myrepo/analytics-service:v1.4.0" "true" "true" \
   "kafka:kafka:9092" "qa"
 write_deploy "report-service" "data" 1 "1000m" "" "2Gi" "" "myrepo/report-service:v2.0.0" "false" "false" \
-  "analytics-service:analytics-service:8080,user-service:user-service:8080" "qa"
+  "analytics-service:analytics-service:8080,user-service:user-service:8080,ledger-service:ledger-service:8080" "qa"
 write_deploy "metrics-aggregator" "data" 1 "200m" "500m" "512Mi" "1Gi" "myrepo/metrics-aggregator:v1.0.0" "true" "true" \
   "kafka:kafka:9092" "qa"
 
@@ -250,36 +250,36 @@ write_deploy "admin-panel" "frontend" 1 "100m" "200m" "128Mi" "256Mi" "myrepo/ad
 
 # audit
 write_deploy "audit-service" "platform" 2 "100m" "250m" "128Mi" "256Mi" "myrepo/audit-service:v1.2.0" "true" "true" \
-  "kafka:kafka:9092" "production"
+  "fraud-service:fraud-service:8080" "production"
 
 # ══════════════════════════════════════════════════════════════════════════════
 # FINTECH — payments team
 # ══════════════════════════════════════════════════════════════════════════════
 
 write_deploy "payment-service" "payments" 3 "300m" "800m" "512Mi" "1Gi" "myrepo/payment-service:v3.2.0" "true" "true" \
-  "fraud-service:fraud-service:8080,ledger-service:ledger-service:8080,kafka:kafka:9092" "production"
+  "fraud-service:fraud-service:8080,ledger-service:ledger-service:8080,auth-service:auth-service:8080" "production"
 write_deploy "payment-worker" "payments" 2 "200m" "500m" "256Mi" "512Mi" "myrepo/payment-service:v3.2.0" "true" "true" "" "production"
 
 write_deploy "fraud-service" "payments" 2 "500m" "1500m" "512Mi" "1Gi" "myrepo/fraud-service:v2.0.0" "true" "true" \
-  "kafka:kafka:9092,redis:redis:6379" "production"
+  "user-service:user-service:8080,auth-service:auth-service:8080" "production"
 write_deploy "fraud-ml-service" "payments" 1 "2000m" "" "4Gi" "" "myrepo/fraud-ml:v1.0.0" "false" "false" \
   "kafka:kafka:9092" "production"
 
 write_deploy "kyc-service" "compliance" 2 "200m" "500m" "384Mi" "768Mi" "myrepo/kyc-service:v1.5.0" "true" "true" \
-  "user-service:user-service:8080,notification-service:notification-service:8080" "qa"
+  "user-service:user-service:8080,notification-service:notification-service:8080,auth-service:auth-service:8080" "qa"
 write_deploy "kyc-worker" "compliance" 2 "150m" "400m" "256Mi" "512Mi" "myrepo/kyc-service:v1.5.0" "true" "true" "" "qa"
 
 write_deploy "ledger-service" "payments" 2 "300m" "800m" "512Mi" "1Gi" "myrepo/ledger-service:v2.1.0" "true" "true" \
-  "kafka:kafka:9092,audit-service:audit-service:8080" "production"
+  "audit-service:audit-service:8080,notification-service:notification-service:8080" "production"
 write_deploy "transaction-service" "payments" 3 "200m" "600m" "384Mi" "768Mi" "myrepo/transaction-service:v1.8.0" "true" "true" \
-  "payment-service:payment-service:8080,ledger-service:ledger-service:8080,kafka:kafka:9092" "production"
+  "payment-service:payment-service:8080,ledger-service:ledger-service:8080,auth-service:auth-service:8080" "production"
 write_deploy "reconciliation-service" "payments" 1 "500m" "" "1Gi" "" "myrepo/reconciliation-service:v1.0.0" "false" "false" \
-  "ledger-service:ledger-service:8080,transaction-service:transaction-service:8080" "production"
+  "ledger-service:ledger-service:8080,transaction-service:transaction-service:8080,audit-service:audit-service:8080" "production"
 
 write_deploy "accounts-service" "payments" 2 "200m" "500m" "384Mi" "768Mi" "myrepo/accounts-service:v2.0.0" "true" "true" \
-  "user-service:user-service:8080,ledger-service:ledger-service:8080" "production"
+  "user-service:user-service:8080,ledger-service:ledger-service:8080,auth-service:auth-service:8080" "production"
 write_deploy "wallet-service" "payments" 2 "150m" "400m" "256Mi" "512Mi" "myrepo/wallet-service:v1.2.0" "true" "true" \
-  "accounts-service:accounts-service:8080,payment-service:payment-service:8080" "production"
+  "accounts-service:accounts-service:8080,payment-service:payment-service:8080,notification-service:notification-service:8080" "production"
 
 # ══════════════════════════════════════════════════════════════════════════════
 # DEVOPS TOOLING — ops team (some intentionally misconfigured for demo)

@@ -8,6 +8,7 @@ import ServiceDiagram from '@/components/ServiceDiagram';
 import ServiceHeader from '@/components/ServiceHeader';
 import AnalysisPanel from '@/components/AnalysisPanel';
 import CostPanel from '@/components/CostPanel';
+import ImpactPanel from '@/components/ImpactPanel';
 import Dashboard from '@/components/Dashboard';
 import DataSourceBanner from '@/components/DataSourceBanner';
 
@@ -123,7 +124,7 @@ function HomeContent() {
       {/* Main content */}
       <main className="relative z-10 max-w-[1600px] mx-auto px-6 py-6">
         {selectedService ? (
-          <ServiceView name={selectedService} onBack={() => setSelectedService(null)} />
+          <ServiceView name={selectedService} onBack={() => setSelectedService(null)} onSelectService={name => setSelectedService(name)} />
         ) : (
           <Dashboard onSelectService={name => setSelectedService(name)} />
         )}
@@ -132,7 +133,7 @@ function HomeContent() {
   );
 }
 
-function ServiceView({ name, onBack }: { name: string; onBack: () => void }) {
+function ServiceView({ name, onBack, onSelectService }: { name: string; onBack: () => void; onSelectService?: (name: string) => void }) {
   return (
     <div className="space-y-4">
       {/* Back button */}
@@ -144,6 +145,7 @@ function ServiceView({ name, onBack }: { name: string; onBack: () => void }) {
         <span>Back to Dashboard</span>
       </button>
       <ServiceHeader name={name} />
+      <ImpactPanel name={name} onSelectService={name => onSelectService?.(name)} />
       <ServiceDiagram name={name} />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="min-h-[400px]">
